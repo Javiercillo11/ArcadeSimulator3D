@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "css/arcade.css"
+        ],
+        "createdAt": "2026-10-28T16:39:59.978Z",
+        "reason": "Claude decided: flagged .crt-frame and .cp-deck have no one-sided border; the match is top/bottom inset box-shadow bevels (light top, dark bottom) that give the molded-plastic look the user's reference requires"
+      }
+    ]
+  }
+}

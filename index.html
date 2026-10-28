@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Arcade Retro</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%2307060f'/%3E%3Ccircle cx='4' cy='4' r='3' fill='%23ffc93c'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/arcade.css">
+  <link rel="stylesheet" href="css/crt.css">
+  <link rel="stylesheet" href="css/screens.css">
+</head>
+<body class="crt-on">
+  <div class="cabinet" id="cabinet">
+    <header class="marquee">
+      <canvas class="mascot mascot-left" id="mascot-left" width="32" height="30" aria-hidden="true"></canvas>
+      <div class="marquee-inner">
+        <span class="marquee-title">ARCADE RETRO</span>
+        <span class="marquee-sub">2 JUEGOS · 1 CRÉDITO</span>
+      </div>
+      <canvas class="mascot mascot-right" id="mascot-right" width="32" height="30" aria-hidden="true"></canvas>
+    </header>
+
+    <div class="cab-body">
+    <nav class="topbar" aria-label="Jugador y opciones">
+      <div class="topbar-user">
+        <span class="topbar-label">JUGADOR</span>
+        <span class="topbar-name" id="active-user" data-testid="active-user">—</span>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="chip" id="btn-records" data-testid="btn-records">RÉCORDS</button>
+        <button type="button" class="chip" id="btn-switch" data-testid="btn-switch">CAMBIAR</button>
+        <button type="button" class="chip" id="btn-crt" aria-pressed="true" title="Efectos CRT">CRT</button>
+        <button type="button" class="chip chip-icon" id="btn-mute" aria-pressed="false" aria-label="Silenciar sonido (M)" title="Silenciar (M)" data-testid="btn-mute">
+          <svg class="mute-icon" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges">
+            <path fill="currentColor" d="M1 4h2l3-3h1v10H6L3 8H1z"/>
+            <path class="mute-on" fill="currentColor" d="M8 4h1v4H8zM10 2h1v8h-1z"/>
+            <path class="mute-off" fill="currentColor" d="M8 4h1v1H8zM9 5h1v2H9zM10 4h1v1h-1zM8 7h1v1H8zM10 7h1v1h-1z"/>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <main class="screen-slot" id="screen-slot">
+      <div class="bezel" id="bezel">
+       <div class="crt-frame">
+        <div class="screen" id="screen">
+          <canvas id="game" width="224" height="288" aria-label="Pantalla de juego"></canvas>
+
+          <section class="panel" id="panel-users" aria-labelledby="users-title" hidden>
+            <h2 class="panel-title" id="users-title">¿QUIÉN JUEGA?</h2>
+            <ul class="user-list" id="user-list" data-testid="user-list"></ul>
+            <p class="empty-msg" id="user-empty">AÚN NO HAY JUGADORES</p>
+            <form class="user-form" id="user-form" novalidate autocomplete="off">
+              <label for="user-name" class="field-label">NUEVO JUGADOR</label>
+              <div class="field-row">
+                <input id="user-name" name="name" maxlength="10" spellcheck="false" autocapitalize="characters"
+                       placeholder="NOMBRE" data-testid="user-name-input" aria-describedby="user-msg">
+                <button type="submit" class="btn btn-primary" id="user-create" data-testid="user-create">CREAR</button>
+              </div>
+              <p class="form-msg" id="user-msg" role="alert" data-testid="user-msg"></p>
+              <button type="button" class="btn btn-small" id="user-dup-select" data-testid="user-dup-select" hidden></button>
+            </form>
+            <p class="limit-msg" id="user-limit" data-testid="user-limit" hidden>LÍMITE DE 5 JUGADORES</p>
+            <p class="hint">↑↓ ELEGIR · ENTER CONFIRMAR</p>
+          </section>
+
+          <section class="panel" id="panel-menu" aria-labelledby="menu-title" hidden>
+            <h2 class="panel-title" id="menu-title">ELIGE JUEGO</h2>
+            <div class="game-grid">
+              <button type="button" class="game-card game-maze" data-game="maze" data-nav data-testid="play-maze">
+                <canvas class="game-art" id="art-maze" width="96" height="40" aria-hidden="true"></canvas>
+                <span class="game-name">MAZE MUNCHER</span>
+                <span class="game-sub">LABERINTO</span>
+                <span class="game-best">RÉCORD <b id="best-maze" data-testid="best-maze">0</b></span>
+              </button>
+              <button type="button" class="game-card game-climb" data-game="climb" data-nav data-testid="play-climb">
+                <canvas class="game-art" id="art-climb" width="96" height="40" aria-hidden="true"></canvas>
+                <span class="game-name">BARREL CLIMB</span>
+                <span class="game-sub">PLATAFORMAS</span>
+                <span class="game-best">RÉCORD <b id="best-climb" data-testid="best-climb">0</b></span>
+              </button>
+            </div>
+            <div class="menu-links">
+              <button type="button" class="btn btn-small" id="menu-records" data-nav>RÉCORDS</button>
+              <button type="button" class="btn btn-small" id="menu-controls" data-nav>CONTROLES</button>
+            </div>
+          </section>
+
+          <section class="panel" id="panel-records" aria-labelledby="records-title" hidden>
+            <h2 class="panel-title" id="records-title">RÉCORDS</h2>
+            <table class="records-table" data-testid="records-table">
+              <thead>
+                <tr><th scope="col">JUGADOR</th><th scope="col">MAZE</th><th scope="col">CLIMB</th></tr>
+              </thead>
+              <tbody id="records-body"></tbody>
+            </table>
+            <div class="menu-links">
+              <button type="button" class="btn btn-small" id="records-back" data-nav data-testid="records-back">VOLVER</button>
+              <button type="button" class="btn btn-small" id="records-export" data-nav>EXPORTAR</button>
+              <button type="button" class="btn btn-small" id="records-import" data-nav>IMPORTAR</button>
+              <input type="file" id="records-file" accept="application/json,.json" hidden>
+            </div>
+            <p class="hint" id="records-note"></p>
+          </section>
+
+          <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" hidden>
+            <div class="overlay-box" id="overlay-box"></div>
+          </div>
+
+          <div class="crt-layer" aria-hidden="true"></div>
+        </div>
+       </div>
+      </div>
+    </main>
+    </div>
+
+    <footer class="control-panel" aria-label="Mandos">
+      <div class="cp-deck">
+        <div class="stick" role="group" aria-label="Joystick">
+          <span class="stick-base" aria-hidden="true"></span>
+          <span class="stick-knob" aria-hidden="true"></span>
+          <div class="dpad">
+            <button type="button" class="pad pad-up" data-action="up" aria-label="Arriba" tabindex="-1"></button>
+            <button type="button" class="pad pad-left" data-action="left" aria-label="Izquierda" tabindex="-1"></button>
+            <button type="button" class="pad pad-right" data-action="right" aria-label="Derecha" tabindex="-1"></button>
+            <button type="button" class="pad pad-down" data-action="down" aria-label="Abajo" tabindex="-1"></button>
+          </div>
+        </div>
+        <div class="action-buttons">
+          <button type="button" class="action action-a" data-action="jump" aria-label="Botón rojo: saltar" tabindex="-1"></button>
+          <span class="action action-deco" aria-hidden="true"></span>
+          <span class="action action-deco" aria-hidden="true"></span>
+        </div>
+      </div>
+      <div class="cp-front">
+        <button type="button" class="cp-small" data-action="pause" aria-label="Pausa" tabindex="-1">❚❚</button>
+        <button type="button" class="cp-small" data-action="start" aria-label="Start" tabindex="-1">START</button>
+        <span class="coin-slot" aria-hidden="true"><span>INSERT COIN</span></span>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" data-testid="toast"></div>
+
+  <script src="fonts/font.js"></script>
+  <script src="js/core/rng.js"></script>
+  <script src="js/core/loop.js"></script>
+  <script src="js/core/input.js"></script>
+  <script src="js/core/audio.js"></script>
+  <script src="js/data/storage.js"></script>
+  <script src="js/data/users.js"></script>
+  <script src="js/data/scores.js"></script>
+  <script src="js/gfx/sprites.js"></script>
+  <script src="js/gfx/renderer.js"></script>
+  <script src="js/gfx/text.js"></script>
+  <script src="js/games/maze/maze-map.js"></script>
+  <script src="js/games/maze/maze-sprites.js"></script>
+  <script src="js/games/maze/ghost-ai.js"></script>
+  <script src="js/games/maze/maze-game.js"></script>
+  <script src="js/games/climb/climb-level.js"></script>
+  <script src="js/games/climb/physics.js"></script>
+  <script src="js/games/climb/hazards.js"></script>
+  <script src="js/games/climb/climb-sprites.js"></script>
+  <script src="js/games/climb/climb-game.js"></script>
+  <script src="js/ui/overlays.js"></script>
+  <script src="js/ui/user-select.js"></script>
+  <script src="js/ui/arcade-menu.js"></script>
+  <script src="js/ui/records.js"></script>
+  <script src="js/core/app.js"></script>
+</body>
+</html>
