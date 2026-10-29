@@ -17,7 +17,7 @@ Hasta 5 jugadores, cada uno con sus récords, monedas, tickets, premios y logros
 
 ## Cómo jugar
 
-**Online:** https://javiercillo11.github.io/arcade/. Se publica sola con cada push a `main` (`.github/workflows/pages.yml`: pruebas unitarias, build y publicación en GitHub Pages).
+**Online:** https://javiercillo11.github.io/ArcadeSimulator3D/. Se publica sola con cada push a `main` (`.github/workflows/pages.yml`: pruebas unitarias, build y publicación en GitHub Pages).
 
 **En local:**
 
