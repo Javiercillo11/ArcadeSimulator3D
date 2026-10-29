@@ -17,6 +17,10 @@ Hasta 5 jugadores, cada uno con sus récords, monedas, tickets, premios y logros
 
 ## Cómo jugar
 
+**Online:** https://javiercillo11.github.io/arcade/. Se publica sola con cada push a `main` (`.github/workflows/pages.yml`: pruebas unitarias, build y publicación en GitHub Pages).
+
+**En local:**
+
 1. Genera el archivo con `npm install` y `npm run build` (ver *Desarrollo*), y abre **`dist/arcade.html`** con doble clic. No hace falta servidor ni internet: lleva dentro el código, la fuente y todas las texturas.
 2. En **¿QUÉ USUARIO VA A JUGAR?** crea tu jugador (de 1 a 10 caracteres) o elige uno, y pulsa **ENTRAR AL SALÓN**.
 3. Camina hasta una máquina. Cuando estés cerca y mirándola aparecerá **[E] …**. Pulsa **E** para jugar, hablar con Mari, elegir canción o comprar un refresco.
