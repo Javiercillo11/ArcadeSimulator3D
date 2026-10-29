@@ -1,6 +1,12 @@
-/* Sintetizador chiptune con Web Audio: efectos, música de título y silencio global. */
+/* Sintetizador chiptune con Web Audio: efectos, música de título, gramola (canal propio) y silencio global. */
 var ctx = null;
 var master = null;
+var jukeboxBus = null;       // la gramola va por su propio volumen (distancia y atenuación al jugar)
+var sfxScale = 1;            // volumen del próximo efecto (sonidos lejanos del salón)
+var jukeboxTimer = 0;
+var jukeboxNodes = [];
+var jukeboxTrack = null;
+var jukeboxVolume = 0.6;
 var muted = false;
 var musicTimer = 0;
 var musicNodes = [];
@@ -17,7 +23,7 @@ function freq(note) {
   return 440 * Math.pow(2, semis / 12);
 }
 
-function tone(opts, when) {
+function tone(opts, when, dest) {
   if (!ctx) return null;
   var t0 = (when || ctx.currentTime) + (opts.delay || 0);
   var osc = ctx.createOscillator();
@@ -25,18 +31,18 @@ function tone(opts, when) {
   osc.type = opts.wave || 'square';
   osc.frequency.setValueAtTime(freq(opts.f), t0);
   if (opts.to) osc.frequency.linearRampToValueAtTime(freq(opts.to), t0 + opts.d);
-  var vol = opts.v === undefined ? 0.15 : opts.v;
+  var vol = (opts.v === undefined ? 0.15 : opts.v) * (dest ? 1 : sfxScale);
   gain.gain.setValueAtTime(vol, t0);
   gain.gain.setValueAtTime(vol, t0 + opts.d * 0.7);
   gain.gain.linearRampToValueAtTime(0.0001, t0 + opts.d);
   osc.connect(gain);
-  gain.connect(master);
+  gain.connect(dest || master);
   osc.start(t0);
   osc.stop(t0 + opts.d + 0.02);
   return osc;
 }
 
-function seq(notes, wave, step, vol, when) {
+function seq(notes, wave, step, vol, when, dest) {
   var nodes = [];
   var t = when || (ctx ? ctx.currentTime : 0);
   for (var i = 0; i < notes.length; i++) {
@@ -44,7 +50,7 @@ function seq(notes, wave, step, vol, when) {
     if (n && n !== '-') {
       var len = 1;
       while (notes[i + len] === '-') len++;
-      nodes.push(tone({ f: n, d: step * len * 0.95, wave: wave, v: vol }, t + i * step));
+      nodes.push(tone({ f: n, d: step * len * 0.95, wave: wave, v: vol }, t + i * step, dest));
     }
   }
   return nodes;
@@ -72,6 +78,16 @@ var SFX = {
   menuMove: function () { tone({ f: 660, d: 0.03, wave: 'square', v: 0.05 }); },
   menuSelect: function () { seq(['E6', 'B6'], 'square', 0.05, 0.06); },
   error: function () { tone({ f: 140, d: 0.15, wave: 'square', v: 0.08 }); },
+  // Juegos nuevos y salón
+  brick: function () { tone({ f: 520 + Math.random() * 200, d: 0.05, wave: 'square', v: 0.07 }); },
+  bounce: function () { tone({ f: 300, d: 0.03, wave: 'triangle', v: 0.1 }); },
+  puck: function () { tone({ f: 180, to: 90, d: 0.06, wave: 'square', v: 0.1 }); },
+  goal: function () { seq(['C5', 'E5', 'G5', 'C6', 'G5', 'C6'], 'square', 0.07, 0.08); },
+  soda: function () { tone({ f: 2000, to: 400, d: 0.35, wave: 'sawtooth', v: 0.03 }); seq(['-', '-', 'E5', 'C5'], 'triangle', 0.1, 0.08); },
+  bell: function () { tone({ f: 1760, d: 0.6, wave: 'sine', v: 0.12 }); tone({ f: 2637, d: 0.4, wave: 'sine', v: 0.05 }); },
+  claw: function () { tone({ f: 70, to: 90, d: 0.25, wave: 'sawtooth', v: 0.04 }); },
+  grab: function () { tone({ f: 400, to: 250, d: 0.12, wave: 'square', v: 0.07 }); },
+  win: function () { seq(['G5', 'B5', 'D6', 'G6', '-', 'D6', 'G6', '-'], 'square', 0.08, 0.09); },
   // Sala 3D
   step: function () { tone({ f: 70 + Math.random() * 20, to: 45, d: 0.06, wave: 'triangle', v: 0.06 }); },
   sit: function () { seq(['C5', 'G5'], 'triangle', 0.06, 0.08); },
@@ -89,6 +105,57 @@ var MUSIC = {
            'C3', '-', 'G3', '-', 'A2', '-', 'E3', '-', 'G2', '-', 'D3', '-', 'C3', '-', 'G2', '-']
   }
 };
+
+// Canciones de la gramola (propias): melodía, bajo y arpegio, en bucle.
+var TRACKS = {
+  neon: {
+    step: 0.16,
+    lead: ['A4', '-', 'C5', 'E5', '-', 'D5', 'C5', '-', 'G4', '-', 'B4', 'D5', '-', 'C5', 'B4', '-',
+           'F4', '-', 'A4', 'C5', '-', 'B4', 'A4', '-', 'E4', '-', 'G#4', 'B4', '-', '-', 'E5', '-'],
+    bass: ['A2', '-', 'A2', 'A3', 'A2', '-', 'A2', 'A3', 'G2', '-', 'G2', 'G3', 'G2', '-', 'G2', 'G3',
+           'F2', '-', 'F2', 'F3', 'F2', '-', 'F2', 'F3', 'E2', '-', 'E2', 'E3', 'E2', '-', 'E2', 'E3'],
+    arp: ['A5', 'E5', 'C5', 'E5', 'A5', 'E5', 'C5', 'E5', 'G5', 'D5', 'B4', 'D5', 'G5', 'D5', 'B4', 'D5',
+          'F5', 'C5', 'A4', 'C5', 'F5', 'C5', 'A4', 'C5', 'E5', 'B4', 'G#4', 'B4', 'E5', 'B4', 'G#4', 'B4']
+  },
+  funk: {
+    step: 0.13,
+    lead: ['E5', '-', '-', 'G5', '-', 'A5', '-', 'G5', 'E5', '-', 'D5', '-', 'E5', '-', '-', '-',
+           'E5', '-', '-', 'G5', '-', 'A5', '-', 'B5', 'A5', 'G5', 'E5', '-', 'D5', '-', 'E5', '-'],
+    bass: ['E2', '-', 'E3', 'E2', '-', 'E2', 'G2', '-', 'A2', '-', 'A3', 'A2', '-', 'G2', 'D2', '-',
+           'E2', '-', 'E3', 'E2', '-', 'E2', 'G2', '-', 'A2', 'A2', 'B2', '-', 'D3', '-', 'B2', '-'],
+    arp: ['-', 'B4', '-', 'B4', '-', 'B4', '-', 'B4', '-', 'C5', '-', 'C5', '-', 'B4', '-', 'B4',
+          '-', 'B4', '-', 'B4', '-', 'B4', '-', 'B4', '-', 'C5', '-', 'D5', '-', 'B4', '-', 'B4']
+  },
+  road: {
+    step: 0.11,
+    lead: ['D5', 'F5', 'A5', '-', 'G5', 'F5', 'E5', '-', 'C5', 'E5', 'G5', '-', 'F5', 'E5', 'D5', '-',
+           'A#4', 'D5', 'F5', '-', 'E5', 'D5', 'C5', '-', 'A4', 'C#5', 'E5', '-', 'A5', '-', '-', '-'],
+    bass: ['D2', 'D3', 'D2', 'D3', 'D2', 'D3', 'D2', 'D3', 'C2', 'C3', 'C2', 'C3', 'C2', 'C3', 'C2', 'C3',
+           'A#1', 'A#2', 'A#1', 'A#2', 'A#1', 'A#2', 'A#1', 'A#2', 'A1', 'A2', 'A1', 'A2', 'A1', 'A2', 'C#2', 'E2'],
+    arp: ['D6', '-', 'A5', '-', 'D6', '-', 'A5', '-', 'C6', '-', 'G5', '-', 'C6', '-', 'G5', '-',
+          'A#5', '-', 'F5', '-', 'A#5', '-', 'F5', '-', 'A5', '-', 'E5', '-', 'C#6', '-', 'E6', '-']
+  }
+};
+export const TRACK_NAMES = { neon: 'NEÓN NOCTURNO', funk: 'PÍXEL FUNK', road: 'AUTOPISTA 8 BITS' };
+
+function scheduleJukebox(name) {
+  var m = TRACKS[name];
+  if (!m || !ctx || !jukeboxBus) return;
+  var t = ctx.currentTime + 0.05;
+  jukeboxNodes = seq(m.lead, 'square', m.step, 0.05, t, jukeboxBus)
+    .concat(seq(m.bass, 'triangle', m.step, 0.13, t, jukeboxBus))
+    .concat(seq(m.arp, 'square', m.step, 0.018, t, jukeboxBus));
+  jukeboxTimer = setTimeout(function () { scheduleJukebox(name); }, m.lead.length * m.step * 1000);
+}
+
+function stopJukeboxNodes() {
+  clearTimeout(jukeboxTimer);
+  jukeboxTimer = 0;
+  for (var i = 0; i < jukeboxNodes.length; i++) {
+    if (jukeboxNodes[i]) { try { jukeboxNodes[i].stop(); } catch (e) { /* ya parado */ } }
+  }
+  jukeboxNodes = [];
+}
 
 function scheduleMusic(name) {
   var m = MUSIC[name];
@@ -111,6 +178,9 @@ audio.unlock = function () {
       master = ctx.createGain();
       master.gain.value = muted ? 0 : 0.8;
       master.connect(ctx.destination);
+      jukeboxBus = ctx.createGain();
+      jukeboxBus.gain.value = jukeboxVolume;
+      jukeboxBus.connect(master);
     } catch (e) {
       ctx = null;
       return;
@@ -119,6 +189,7 @@ audio.unlock = function () {
   if (ctx.state === 'suspended') ctx.resume();
   var pending = currentMusic;
   if (pending && !musicTimer) scheduleMusic(pending);
+  if (jukeboxTrack && !jukeboxTimer) scheduleJukebox(jukeboxTrack);
   for (var i = 0; i < listeners.length; i++) listeners[i]();
 };
 
@@ -128,6 +199,28 @@ audio.play = function (name) {
   if (!ctx || muted || ctx.state !== 'running') return;
   var fx = SFX[name];
   if (fx) fx();
+};
+
+// Efecto con volumen reducido (0..1): sonidos de otras máquinas según la distancia.
+audio.playVol = function (name, v) {
+  sfxScale = Math.max(0, Math.min(1, v));
+  audio.play(name);
+  sfxScale = 1;
+};
+
+// Gramola: name = 'neon' | 'funk' | 'road' | null (apagar).
+audio.jukebox = function (name) {
+  stopJukeboxNodes();
+  jukeboxTrack = TRACKS[name] ? name : null;
+  if (jukeboxTrack && ctx && ctx.state === 'running') scheduleJukebox(jukeboxTrack);
+};
+
+audio.jukeboxTrack = function () { return jukeboxTrack; };
+
+// Volumen de la gramola (0..1), con un fundido corto para que no chasquee.
+audio.setJukeboxVolume = function (v) {
+  jukeboxVolume = Math.max(0, Math.min(1, v));
+  if (jukeboxBus && ctx) jukeboxBus.gain.setTargetAtTime(jukeboxVolume, ctx.currentTime, 0.15);
 };
 
 audio.music = function (name) {

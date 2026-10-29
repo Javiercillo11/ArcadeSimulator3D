@@ -13,14 +13,14 @@ Ejecutado el 29/10/2026 con `npm test`, en Linux (WSL2), Node 24.22.1, Vitest 2.
 
 | Batería | Pruebas | Resultado | Tiempo |
 |---|---|---|---|
-| Vitest | 60 | 60 en verde | 0,37 s |
-| Playwright | 25 | 25 en verde | 39,1 s |
+| Vitest | 114 | 114 en verde | 0,4 s |
+| Playwright | 42 | 42 en verde | 2,3 min (tres ejecuciones seguidas en verde: 1,7, 2,4 y 2,3 min) |
 
-Build: `dist/arcade.html` de 777 KB (226 KB comprimido con gzip). Sin recursos externos: se ha comprobado que no queda ningún `src` ni `href` que no sea `data:`.
+Build: `dist/arcade.html` de 897 KB (263 KB comprimido con gzip). Sin recursos externos: se ha comprobado que no queda ningún `src` ni `href` que no sea `data:`.
 
 ## Vitest
 
-### Datos (`data.test.js`, 19 pruebas)
+### Datos (`data.test.js`, 32 pruebas)
 
 | Prueba | Qué comprueba |
 |---|---|
@@ -36,7 +36,20 @@ Build: `dist/arcade.html` de 777 KB (226 KB comprimido con gzip). Sin recursos e
 | Historial | Solo las últimas 20 partidas por juego |
 | Tabla y avisos | Orden de mayor a menor; los oyentes reciben el cambio |
 | Persistencia de récords | Sobreviven a recargar |
-| Migración v1 → v2 | Conserva usuarios, récords y ajustes, añade `quality` y `mouseSens`, no crea copia de seguridad y guarda la versión 2 |
+| Migración v1 → v3 | Conserva usuarios, récords y ajustes, añade `quality` y `mouseSens`, da 3 monedas e iniciales, coloca el récord en el TOP 10, no crea copia de seguridad y guarda la versión 3 |
+| Migración v2 → v3 | No toca los ajustes existentes |
+| Monedas | Se empieza con 3, cada partida gasta 1 y sin monedas no se gasta nada |
+| Máquina de cambio | No pasa de 30, las monedas son de cada jugador y se guardan |
+| Monedas dañadas | Fuera de rango vuelven a 3; iniciales inválidas vuelven a las del nombre |
+| TOP 10 de fábrica | 10 entradas del salón, ordenadas, la última de 500 |
+| Entrar en el TOP 10 | Solo quien supera al décimo; con empate no desplaza |
+| Insertar | Va a su puesto, echa al último, avisa al tablero y persiste |
+| Iniciales por defecto | Sacadas del nombre, sin acentos y rellenas con espacios; solo se aceptan válidas |
+| Tabla dañada | Se descartan entradas inválidas y se reordena |
+| Migración v3 → v4 | Añade los récords y el TOP 10 de los tres juegos nuevos, los tickets, los premios y los logros, sin tocar monedas ni iniciales |
+| Tickets y premios | Se suman tickets; canjear resta el coste y añade a la vitrina; sin tickets suficientes no se canjea; los peluches se añaden gratis; persiste |
+| Logros | Se desbloquean una vez, avisan y persisten; un logro desconocido no hace nada |
+| Datos v4 dañados | Tickets negativos, premios o logros inválidos se reparan |
 | Datos dañados | Duplicados, ids inválidos, récords negativos y juegos desconocidos se descartan o reparan; se guarda copia en `arcade.backup` |
 | JSON ilegible | Copia de seguridad y arranque limpio |
 | Versión desconocida | Se trata como dañada |
@@ -66,6 +79,60 @@ Build: `dist/arcade.html` de 777 KB (226 KB comprimido con gzip). Sin recursos e
 | Fruta | Aparece a los 70 y a los 170 puntos, y vale 100 en el nivel 1 |
 | Vida extra | A los 10 000 puntos, una sola vez |
 | Dificultad | Velocidades, vulnerabilidad y ciclos cambian con el nivel |
+
+### Iniciales (`initials.test.js`, 6 pruebas)
+
+| Prueba | Qué comprueba |
+|---|---|
+| Inicio | Parte de las iniciales propuestas, normalizadas |
+| Letra | Arriba y abajo cambian la letra dando la vuelta al alfabeto |
+| Repetición | Mantener arriba repite tras una pausa |
+| Cursor | Izquierda y derecha mueven el cursor sin salirse |
+| Confirmar | SALTAR o START confirman cada letra; la tercera termina |
+| Tiempo | A los 30 s se acepta lo que haya |
+
+### BRICK BLAST (`brick.test.js`, 11 pruebas)
+
+| Prueba | Qué comprueba |
+|---|---|
+| Contrato | Estado legible; READY con la bola en la pala y 78 ladrillos |
+| Pala | Se mueve sin salirse y lleva la bola pegada |
+| Lanzamiento | ESPACIO la lanza hacia arriba; si no, sale sola a los 150 pasos |
+| Rebotes | Paredes, techo y ángulo de la pala según el punto de impacto |
+| Ladrillos | Puntos de su fila; los plateados necesitan dos golpes |
+| Vidas | Perder la bola quita una vida y vuelve a sacar; sin vidas, GAME_OVER |
+| Niveles | Sin ladrillos se supera el nivel; el siguiente tiene otro diseño y va más rápido |
+| Cápsulas | W ensancha la pala y L da una vida (+100 cada una) |
+| Determinismo | Misma semilla y misma entrada dan la misma partida |
+
+### AIR HOCKEY (`hockey.test.js`, 11 pruebas)
+
+| Prueba | Qué comprueba |
+|---|---|
+| Contrato | Estado legible; READY con el disco en el campo del jugador |
+| Mazo | Se mueve con las flechas sin pasar del centro ni de las bandas |
+| Física | Rebotes en las bandas con rozamiento; el golpe del mazo lanza el disco |
+| Goles | Portería de arriba: +500 y saca la máquina; fuera de la boca rebota en el fondo |
+| IA | Defiende siguiendo al disco y ataca cuando está en su campo |
+| Final | A 7 goles: victoria = 3000 + 500 por gol de diferencia; derrota = solo 500 por gol |
+| Determinismo | Misma semilla y misma entrada dan la misma partida |
+
+### SKEE-BALL (`skee.test.js`, 8 pruebas)
+
+| Prueba | Qué comprueba |
+|---|---|
+| Hoyos | 50 en el centro, 40/30/20 en los anillos, 10 fuera y 100 en las esquinas |
+| Puntería y fuerza | ←/→ dentro de la pista; la barra sube y baja mientras se mantiene ESPACIO y al soltar se lanza |
+| Tiros | Sin fuerza: 10; fuerza justa al centro: 50; más fuerza, más lejos; arrimada a un lado: 100 |
+| Partida | Tras 9 bolas termina con la suma de los hoyos |
+
+### Grúa (`claw.test.js`, 5 pruebas)
+
+| Prueba | Qué comprueba |
+|---|---|
+| Moneda | Sin moneda no se mueve; con moneda hay 15 s para moverla y luego baja sola |
+| Premio | Sobre un peluche lo agarra, lo lleva a la boca y lo da como premio |
+| Fallos | Lejos de cualquier peluche sube vacía; a veces se escurre; un peluche ya ganado no se repite |
 
 ### BARREL CLIMB (`climb.test.js`, 20 pruebas)
 
@@ -108,15 +175,15 @@ Build: `dist/arcade.html` de 777 KB (226 KB comprimido con gzip). Sin recursos e
 
 | Prueba | Qué comprueba |
 |---|---|
-| Colisiones | Andar 5 s contra cada máquina la deja a la distancia del radio; correr 6 s contra las paredes (y contra el banco) no las atraviesa |
-| Deslizar | En diagonal contra una máquina, el jugador se desliza a lo largo de ella |
+| Colisiones | Andar 5 s hacia cada recreativa se para en su taburete o en ella, nunca dentro; correr 8 s contra las paredes no las atraviesa |
+| Deslizar | En diagonal contra la mesa de hockey, el jugador se desliza a lo largo de ella |
 | Aviso de E | Solo aparece cerca, de frente y mirando a la máquina; E sin aviso no hace nada |
 | Bucle único | Tras 10 ciclos de sentarse, jugar y levantarse, `loopStarts` es 1; en 2 s de tiempo real hay un fotograma de la app por cada fotograma del navegador (proporción entre 0,8 y 1,25) y nunca más de 66 pasos por segundo |
 | Menú | ESC lo abre; las flechas mueven el foco; Controles, Récords y Volver; con el menú abierto no se anda |
 | Ajustes | Sonido, CRT, calidad y sensibilidad se recuerdan tras recargar; M alterna el silencio |
 | Vista | El ratón gira la vista y el cabeceo se limita a ±1,35 rad |
-| Tablero | El tablero de la pared se actualiza al batir un récord |
-| Migración | Datos de la versión anterior (schemaVersion 1) se migran sin perder el récord |
+| Tablero | El tablero de la pared muestra el TOP de fábrica y se actualiza al entrar en él |
+| Migración | Datos de la v1 se migran a la v4 sin perder el récord, con monedas, iniciales y su puesto en el TOP 10 |
 | Modo memoria | Sin localStorage aparece el aviso y se juega en memoria |
 
 ### Plataforma (`platform.spec.js`, 7 pruebas)
@@ -127,6 +194,33 @@ Build: `dist/arcade.html` de 777 KB (226 KB comprimido con gzip). Sin recursos e
 | Móvil táctil 390×844 | Controles táctiles visibles y sin aviso de ratón; la palanca virtual hace andar; el botón E sienta al jugador; cruceta, START (empieza), A (salta) y SALIR (vuelve a la sala); sin scroll horizontal |
 | Sin WebGL | Con `--disable-webgl --disable-3d-apis` aparece el mensaje **SIN 3D** y ningún error |
 | Persistencia real | Cerrar el navegador con un perfil persistente y volver a abrirlo: el récord sigue en la lista y en el tablero |
+
+### Juegos nuevos y salón (`extras.spec.js`, 12 pruebas)
+
+| Prueba | Qué comprueba |
+|---|---|
+| BRICK BLAST | Se lanza la bola con ESPACIO; al terminar, récord y 3 tickets en el HUD |
+| AIR HOCKEY | El mazo sube con ↑; ganar 7-2 da 17 tickets y los logros *first* y *hockeyWin* |
+| SKEE-BALL | Mantener y soltar ESPACIO lanza una bola real que puntúa; pasa a la siguiente; 330 puntos dan 33 tickets |
+| Demos | BRICK, HOCKEY y SKEE muestran su demo |
+| Grúa | Cuesta una moneda, la pinza se mueve con →, el peluche ganado va a la vitrina y da el logro |
+| Recepción y premios | Con 100 tickets se canjean el patito y el fantasma, se desactivan los que no alcanzan, Mari lo comenta, la vitrina los muestra y persisten |
+| Gramola | Elegir, apagar y volver a elegir canción; se recuerda al recargar y da el logro |
+| Refrescos | Cuesta una moneda, la lata aparece en la mano unos segundos; sin monedas se avisa |
+| Máquina averiada | Aviso «FUERA DE SERVICIO» y E no hace nada |
+| Pantalla grande | G muestra el canvas a toda la ventana mientras se sigue jugando; G o Q vuelven; también desde la pausa |
+| Pantalla completa | El botón del menú la activa o avisa si el navegador no lo permite, sin errores |
+| Logros | El panel muestra los conseguidos (*first*, *champion*) y los pendientes, «X DE 14» |
+
+### Monedas e iniciales (`coins.spec.js`, 5 pruebas)
+
+| Prueba | Qué comprueba |
+|---|---|
+| Coste | 3 partidas con 3 monedas; sin monedas ENTER no empieza, el HUD se pone en rojo y REINICIAR se desactiva |
+| Recepción | Aviso «HABLAR CON MARI»; Mari saluda por el nombre y da +5 con 5 monedas en el mostrador; tope de 30; el mostrador no se atraviesa; persiste al recargar |
+| Iniciales con teclado | ↑ → ↓ Espacio ↑ Enter dan «K W» en el puesto 3; aparecen en el TOP 10 y en el tablero, y se proponen en la siguiente partida |
+| Fuera del TOP 10 | 300 puntos dan récord personal sin pedir iniciales |
+| Levantarse | Con Q durante las iniciales, se guardan las que hubiera |
 
 ### Tiempo real (`realtime.spec.js`, 1 prueba, proyecto aparte)
 

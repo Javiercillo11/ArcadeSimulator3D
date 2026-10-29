@@ -13,9 +13,9 @@ function buildHand(side) {
   const forearm = new Group();
   forearm.position.z = 0.03;
   forearm.rotation.x = 0.6;
-  const arm = new Mesh(new CylinderGeometry(0.032, 0.038, 0.26, 14), sleeveMat);
+  const arm = new Mesh(new CylinderGeometry(0.032, 0.038, 0.2, 14), sleeveMat);
   arm.rotation.x = Math.PI / 2;
-  arm.position.z = 0.15;
+  arm.position.z = 0.12;
   const cuff = new Mesh(new CylinderGeometry(0.035, 0.035, 0.03, 14), new MeshStandardMaterial({ color: 0xffd23f, roughness: 0.6 }));
   cuff.rotation.x = Math.PI / 2;
   cuff.position.z = 0.015;
@@ -83,6 +83,17 @@ export class Hands {
     this._button = new Vector3();
     this._tmp = new Vector3();
     this.visible = true;
+    // Lata de refresco que se puede llevar en la mano derecha.
+    this.can = new Mesh(new CylinderGeometry(0.032, 0.032, 0.12, 16), new MeshStandardMaterial({ color: 0x2a7fff, roughness: 0.3, metalness: 0.6 }));
+    this.can.position.set(0, 0.035, -0.06);
+    this.can.visible = false;
+    this.can.frustumCulled = false;
+    this.right.root.add(this.can);
+  }
+
+  holdCan(on, color) {
+    this.can.visible = !!on;
+    if (color !== undefined) this.can.material.color.set(color);
   }
 
   setVisible(v) { this.group.visible = v; this.visible = v; }

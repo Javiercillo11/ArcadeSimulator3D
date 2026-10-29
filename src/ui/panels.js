@@ -3,10 +3,12 @@
 import { $, el, focusFirst, toast } from './dom.js';
 import * as users from '../data/users.js';
 import * as scores from '../data/scores.js';
-import { storage, MAX_USERS, exportJSON, importJSON } from '../data/storage.js';
-import { audio } from '../core/audio.js';
+import { storage, MAX_USERS, GAMES as GAME_IDS, exportJSON, importJSON } from '../data/storage.js';
+import { audio, TRACK_NAMES } from '../core/audio.js';
+import { PRIZES } from '../data/prizes.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
 
-const PANELS = ['panel-users', 'panel-menu', 'panel-pause', 'panel-records', 'panel-controls'];
+const PANELS = ['panel-users', 'panel-menu', 'panel-pause', 'panel-records', 'panel-controls', 'panel-reception', 'panel-jukebox', 'panel-achievements'];
 
 export function hideAll() {
   for (const id of PANELS) $(id).hidden = true;
@@ -101,7 +103,7 @@ export function initUsers(app) {
         onclick: () => { audio.play('menuSelect'); app.selectUser(u.id); renderUsers(); $('user-enter').focus(); }
       }, [
         el('span', { class: 'user-name', text: u.name }),
-        el('span', { class: 'user-stats', text: 'MZ ' + u.records.maze.best + ' · BC ' + u.records.climb.best })
+        el('span', { class: 'user-stats', text: 'MZ ' + u.records.maze.best + ' · BC ' + u.records.climb.best + ' · ' + u.coins + ' MON. · ' + u.tickets + ' TIC.' })
       ]);
       list.appendChild(el('li', { class: 'user-item' }, [btn, del]));
     }
@@ -136,6 +138,9 @@ export function initMenu(app) {
   $('menu-records').addEventListener('click', () => app.showRecords());
   $('menu-switch').addEventListener('click', () => app.toUserSelect());
   $('menu-controls').addEventListener('click', () => app.showControls());
+  $('menu-achievements').addEventListener('click', () => app.showAchievements());
+  $('menu-fullscreen').addEventListener('click', () => app.toggleFullscreen());
+  $('pause-big').addEventListener('click', () => { app.resume(); app.toggleBig(); });
   $('menu-sound').addEventListener('click', () => { app.toggleMute(); renderMenu(); });
   $('menu-crt').addEventListener('click', () => { app.setCrt(!storage.data.settings.crt); renderMenu(); });
   $('menu-quality').addEventListener('click', () => { app.setQuality(storage.data.settings.quality === 'low' ? 'high' : 'low'); renderMenu(); });
@@ -154,11 +159,18 @@ export function initMenu(app) {
     $('menu-crt').setAttribute('aria-pressed', s.crt ? 'true' : 'false');
     $('menu-quality').textContent = 'CALIDAD: ' + (s.quality === 'low' ? 'BAJA' : 'ALTA');
     $('menu-sens').value = String(s.mouseSens);
+    $('menu-fullscreen').textContent = 'PANTALLA COMPLETA: ' + (document.fullscreenElement ? 'SÍ' : 'NO');
   }
 
   return {
     showMenu() { renderMenu(); show('panel-menu'); },
-    showPause(gameName) { $('pause-game').textContent = gameName; show('panel-pause'); },
+    showPause(gameName, coins, hasScreen) {
+      $('pause-game').textContent = gameName + ' · MONEDAS ' + coins;
+      $('pause-big').hidden = !hasScreen;
+      $('pause-restart').textContent = coins > 0 ? 'REINICIAR (1 MONEDA)' : 'REINICIAR (SIN MONEDAS)';
+      $('pause-restart').disabled = coins <= 0;
+      show('panel-pause');
+    },
     render: renderMenu
   };
 }
@@ -210,12 +222,22 @@ export function initRecords(app) {
     for (const u of all) {
       body.appendChild(el('tr', { class: active && active.id === u.id ? 'is-active' : '', 'data-testid': 'rec-row-' + u.name }, [
         el('td', { text: u.name }),
-        cell(u.records.maze, 'maze', u.name),
-        cell(u.records.climb, 'climb', u.name)
+        ...GAME_IDS.map((g) => cell(u.records[g], g, u.name))
       ]));
     }
     for (let k = all.length; k < MAX_USERS; k++) {
-      body.appendChild(el('tr', null, [el('td', { class: 'rec-empty', colspan: '3', text: '— LIBRE —' })]));
+      body.appendChild(el('tr', null, [el('td', { class: 'rec-empty', colspan: String(GAME_IDS.length + 1), text: '— LIBRE —' })]));
+    }
+    // TOP 10 de cada máquina, con iniciales.
+    for (const game of GAME_IDS) {
+      const ol = $('hof-' + game);
+      ol.textContent = '';
+      scores.hallOfFame(game).forEach((e) => {
+        ol.appendChild(el('li', { class: active && e.userId === active.id ? 'is-active' : '', 'data-testid': 'hof-' + game + '-row' }, [
+          el('span', { class: 'hof-initials', text: e.initials }),
+          el('span', { class: 'hof-score', text: String(e.score) })
+        ]));
+      });
     }
     $('records-note').textContent = storage.mode === 'memory' ? 'MODO MEMORIA: NO SE GUARDA' : 'GUARDADO EN ESTE NAVEGADOR';
   }
@@ -223,5 +245,71 @@ export function initRecords(app) {
   return {
     showRecords() { render(); show('panel-records'); },
     showControls() { show('panel-controls'); }
+  };
+}
+
+// ------------------------------------------------------------ recepción
+
+export function initReception(app) {
+  $('reception-coins').addEventListener('click', () => app.askCoins());
+  $('reception-bye').addEventListener('click', () => app.resume());
+
+  function render() {
+    const u = users.active();
+    if (!u) return;
+    $('reception-wallet').textContent = 'TIENES ' + u.coins + ' MONEDAS Y ' + u.tickets + ' TICKETS';
+    const list = $('prize-list');
+    list.textContent = '';
+    for (const p of PRIZES) {
+      const btn = el('button', { type: 'button', class: 'btn', 'data-testid': 'redeem-' + p.id, text: p.cost + ' TIC.' });
+      btn.disabled = u.tickets < p.cost;
+      btn.addEventListener('click', () => app.redeem(p.id));
+      list.appendChild(el('li', null, [el('span', { text: p.name }), btn]));
+    }
+  }
+
+  return {
+    show() { render(); show('panel-reception'); },
+    render
+  };
+}
+
+// ------------------------------------------------------------ gramola
+
+export function initJukebox(app) {
+  for (const b of document.querySelectorAll('#jukebox-tracks [data-track]')) {
+    b.addEventListener('click', () => app.playTrack(b.dataset.track || null));
+  }
+  $('jukebox-close').addEventListener('click', () => app.resume());
+  return {
+    show(current) {
+      $('jukebox-now').textContent = current ? 'SUENA: ' + TRACK_NAMES[current] : 'LA GRAMOLA ESTÁ APAGADA';
+      for (const b of document.querySelectorAll('#jukebox-tracks [data-track]')) b.setAttribute('aria-pressed', String((b.dataset.track || null) === current));
+      if (openPanel() !== 'panel-jukebox') show('panel-jukebox');
+    }
+  };
+}
+
+// ------------------------------------------------------------ logros
+
+export function initAchievements(app) {
+  $('achievements-back').addEventListener('click', () => app.back());
+  return {
+    show() {
+      const u = users.active();
+      const list = $('achievement-list');
+      list.textContent = '';
+      let done = 0;
+      for (const a of ACHIEVEMENTS) {
+        const when = u && u.achievements[a.id];
+        if (when) done++;
+        list.appendChild(el('li', { class: when ? 'is-done' : '', 'data-testid': 'ach-' + a.id }, [
+          el('strong', { text: (when ? '★ ' : '☆ ') + a.name }),
+          el('span', { text: a.desc + (when ? ' · ' + scores.formatDate(when) : '') })
+        ]));
+      }
+      $('achievements-count').textContent = done + ' DE ' + ACHIEVEMENTS.length;
+      show('panel-achievements');
+    }
   };
 }

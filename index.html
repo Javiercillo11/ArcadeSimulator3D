@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a0716">
   <title>Salón Recreativo</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='1' width='20' height='30' rx='3' fill='%230a0716'/%3E%3Crect x='7.5' y='2.5' width='17' height='27' rx='2' fill='%231d2bb8'/%3E%3Crect x='9' y='4' width='14' height='4' rx='1' fill='%23ffd23f'/%3E%3Crect x='9' y='10' width='14' height='9' rx='1.5' fill='%230a0716'/%3E%3Cpath d='M14 14.5 L17.6 12.2 A4 4 0 1 0 17.6 16.8 Z' fill='%23ffd23f'/%3E%3Ccircle cx='20' cy='14.5' r='1' fill='%23ffd6a8'/%3E%3Cpath d='M5 21 H27 L25.5 25 H6.5 Z' fill='%23ff3d8b'/%3E%3Ccircle cx='11' cy='22.6' r='1.4' fill='%23ffffff'/%3E%3Ccircle cx='18.5' cy='22.8' r='1.1' fill='%232fd8ff'/%3E%3Ccircle cx='22' cy='22.8' r='1.1' fill='%23ffd23f'/%3E%3Crect x='12' y='26.5' width='8' height='2' rx='0.5' fill='%23ff2a3a'/%3E%3C/svg%3E">
 </head>
 <body>
   <div id="scene" aria-hidden="true"></div>
@@ -17,6 +18,14 @@
       <span><kbd>ENTER</kbd> EMPEZAR</span><span><kbd>ESC</kbd> PAUSA</span><span><kbd>F</kbd> ACERCAR</span><span><kbd>Q</kbd> LEVANTARSE</span>
     </div>
     <div id="hud-user" class="hud-user" data-testid="hud-user"></div>
+    <div id="hud-coins" class="hud-coins" data-testid="hud-coins" aria-label="Monedas"><span class="coin" aria-hidden="true"></span><span id="hud-coins-n">0</span></div>
+    <div id="hud-tickets" class="hud-tickets" data-testid="hud-tickets" aria-label="Tickets"><span class="ticket" aria-hidden="true"></span><span id="hud-tickets-n">0</span></div>
+  </div>
+
+  <!-- Pantalla grande: el canvas del juego a toda la ventana -->
+  <div id="bigscreen" class="bigscreen" data-testid="bigscreen" hidden>
+    <div id="bigscreen-slot" class="bigscreen-slot"></div>
+    <p class="bigscreen-hint"><kbd>G</kbd> VOLVER AL SALÓN · <kbd>ESC</kbd> PAUSA</p>
   </div>
 
   <div id="lock-hint" class="lock-hint" hidden>HAZ CLIC PARA VOLVER A MIRAR CON EL RATÓN</div>
@@ -48,7 +57,9 @@
       <button class="btn btn-primary" type="button" data-testid="menu-resume" id="menu-resume">CONTINUAR</button>
       <button class="btn" type="button" data-testid="menu-records" id="menu-records">RÉCORDS</button>
       <button class="btn" type="button" data-testid="menu-switch" id="menu-switch">CAMBIAR USUARIO</button>
+      <button class="btn" type="button" data-testid="menu-achievements" id="menu-achievements">LOGROS</button>
       <button class="btn" type="button" data-testid="menu-controls" id="menu-controls">CONTROLES</button>
+      <button class="btn" type="button" data-testid="menu-fullscreen" id="menu-fullscreen">PANTALLA COMPLETA: NO</button>
       <button class="btn" type="button" data-testid="menu-sound" id="menu-sound" aria-pressed="true">SONIDO: SÍ</button>
       <button class="btn" type="button" data-testid="menu-crt" id="menu-crt" aria-pressed="true">PANTALLA CRT: SÍ</button>
       <button class="btn" type="button" data-testid="menu-quality" id="menu-quality">CALIDAD: ALTA</button>
@@ -63,6 +74,7 @@
     <div class="stack">
       <button class="btn btn-primary" type="button" data-testid="pause-resume" id="pause-resume">CONTINUAR</button>
       <button class="btn" type="button" data-testid="pause-restart" id="pause-restart">REINICIAR</button>
+      <button class="btn" type="button" data-testid="pause-big" id="pause-big">PANTALLA GRANDE (G)</button>
       <button class="btn" type="button" data-testid="pause-stand" id="pause-stand">LEVANTARSE</button>
     </div>
   </section>
@@ -71,9 +83,17 @@
   <section id="panel-records" class="panel panel-wide" aria-labelledby="records-title" hidden>
     <h2 id="records-title" class="panel-title">RÉCORDS</h2>
     <table class="records" data-testid="records-table">
-      <thead><tr><th>JUGADOR</th><th>MAZE MUNCHER</th><th>BARREL CLIMB</th></tr></thead>
+      <thead><tr><th>JUGADOR</th><th>MAZE</th><th>BARREL</th><th>BRICK</th><th>SKEE</th><th>HOCKEY</th></tr></thead>
       <tbody id="records-body"></tbody>
     </table>
+    <h3 class="panel-sub">TOP 10 DE CADA MÁQUINA</h3>
+    <div class="hof">
+      <div><p class="hof-title">MAZE MUNCHER</p><ol id="hof-maze" class="hof-list"></ol></div>
+      <div><p class="hof-title">BARREL CLIMB</p><ol id="hof-climb" class="hof-list"></ol></div>
+      <div><p class="hof-title">BRICK BLAST</p><ol id="hof-brick" class="hof-list"></ol></div>
+      <div><p class="hof-title">SKEE-BALL</p><ol id="hof-skee" class="hof-list"></ol></div>
+      <div><p class="hof-title">AIR HOCKEY</p><ol id="hof-hockey" class="hof-list"></ol></div>
+    </div>
     <p id="records-note" class="muted"></p>
     <div class="row">
       <button class="btn btn-small" type="button" id="records-export" data-testid="records-export">EXPORTAR</button>
@@ -81,6 +101,37 @@
       <input type="file" id="records-file" accept="application/json,.json" hidden>
     </div>
     <button class="btn btn-primary" type="button" id="records-back" data-testid="records-back">VOLVER</button>
+  </section>
+
+  <!-- Recepción -->
+  <section id="panel-reception" class="panel panel-wide" aria-labelledby="reception-title" hidden>
+    <h2 id="reception-title" class="panel-title">RECEPCIÓN</h2>
+    <p class="muted" id="reception-wallet" data-testid="reception-wallet"></p>
+    <button class="btn btn-primary" type="button" id="reception-coins" data-testid="reception-coins">PEDIR 5 MONEDAS</button>
+    <h3 class="panel-sub">CANJEAR TICKETS POR PREMIOS</h3>
+    <ul id="prize-list" class="prize-list" data-testid="prize-list"></ul>
+    <button class="btn" type="button" id="reception-bye" data-testid="reception-bye">ADIÓS, MARI</button>
+  </section>
+
+  <!-- Gramola -->
+  <section id="panel-jukebox" class="panel" aria-labelledby="jukebox-title" hidden>
+    <h2 id="jukebox-title" class="panel-title">GRAMOLA</h2>
+    <p class="muted" id="jukebox-now"></p>
+    <div class="stack" id="jukebox-tracks">
+      <button class="btn" type="button" data-track="neon" data-testid="track-neon">1. NEÓN NOCTURNO</button>
+      <button class="btn" type="button" data-track="funk" data-testid="track-funk">2. PÍXEL FUNK</button>
+      <button class="btn" type="button" data-track="road" data-testid="track-road">3. AUTOPISTA 8 BITS</button>
+      <button class="btn" type="button" data-track="" data-testid="track-off">APAGAR</button>
+    </div>
+    <button class="btn btn-primary" type="button" id="jukebox-close" data-testid="jukebox-close">VOLVER</button>
+  </section>
+
+  <!-- Logros -->
+  <section id="panel-achievements" class="panel panel-wide" aria-labelledby="achievements-title" hidden>
+    <h2 id="achievements-title" class="panel-title">LOGROS</h2>
+    <p class="muted" id="achievements-count"></p>
+    <ul id="achievement-list" class="achievement-list" data-testid="achievement-list"></ul>
+    <button class="btn btn-primary" type="button" id="achievements-back" data-testid="achievements-back">VOLVER</button>
   </section>
 
   <!-- Controles -->
@@ -91,13 +142,17 @@
       <tbody>
         <tr><td>SALA</td><td>ANDAR / MIRAR</td><td>WASD O FLECHAS / RATÓN</td><td>PALANCA / ARRASTRAR</td></tr>
         <tr><td>SALA</td><td>CORRER</td><td>SHIFT</td><td>—</td></tr>
-        <tr><td>SALA</td><td>USAR MÁQUINA</td><td>E</td><td>E</td></tr>
+        <tr><td>SALA</td><td>USAR MÁQUINA / PEDIR MONEDAS</td><td>E</td><td>E</td></tr>
         <tr><td>SALA</td><td>MENÚ</td><td>ESC</td><td>☰</td></tr>
         <tr><td>MÁQUINA</td><td>MOVER / ESCALAR</td><td>FLECHAS O WASD</td><td>CRUCETA</td></tr>
         <tr><td>MÁQUINA</td><td>SALTAR</td><td>ESPACIO</td><td>A</td></tr>
-        <tr><td>MÁQUINA</td><td>EMPEZAR</td><td>ENTER</td><td>START</td></tr>
+        <tr><td>MÁQUINA</td><td>EMPEZAR (1 MONEDA)</td><td>ENTER</td><td>START</td></tr>
+        <tr><td>MÁQUINA</td><td>INICIALES: LETRA / MOVER / VALE</td><td>↑↓ / ←→ / ESPACIO</td><td>CRUCETA / A</td></tr>
         <tr><td>MÁQUINA</td><td>PAUSA</td><td>ESC</td><td>❚❚</td></tr>
         <tr><td>MÁQUINA</td><td>ACERCAR / LEVANTARSE</td><td>F / Q</td><td>— / SALIR</td></tr>
+        <tr><td>MÁQUINA</td><td>PANTALLA GRANDE</td><td>G</td><td>▣</td></tr>
+        <tr><td>SKEE-BALL</td><td>APUNTAR / LANZAR</td><td>←→ / MANTENER ESPACIO</td><td>CRUCETA / A</td></tr>
+        <tr><td>GRÚA</td><td>MOVER / BAJAR</td><td>FLECHAS / ESPACIO</td><td>CRUCETA / A</td></tr>
         <tr><td>SIEMPRE</td><td>SILENCIO</td><td>M</td><td>—</td></tr>
       </tbody>
     </table>
@@ -123,6 +178,7 @@
       <div class="touch-small">
         <button class="touch-btn" type="button" data-action="start" data-testid="touch-start">START</button>
         <button class="touch-btn" type="button" data-action="pause" aria-label="Pausa">❚❚</button>
+        <button class="touch-btn" type="button" data-action="big" data-testid="touch-big" aria-label="Pantalla grande">▣</button>
         <button class="touch-btn" type="button" data-action="stand" data-testid="touch-exit">SALIR</button>
       </div>
     </div>

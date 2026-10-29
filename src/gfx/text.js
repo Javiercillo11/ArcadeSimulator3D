@@ -2,7 +2,7 @@
 import { sprites } from './sprites.js';
 
 var CHARS = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~' +
-            '¡¿ÁÉÍÓÚÑÜ©×';
+            '¡¿ÁÉÍÓÚÑÜ©×º·';
 var CELL = 8;
 var COLS = 16;
 

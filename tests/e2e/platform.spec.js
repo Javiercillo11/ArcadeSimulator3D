@@ -119,7 +119,7 @@ test('persistencia tras cerrar y volver a abrir el navegador', async () => {
     await open(page);
     await expect(page.locator('[data-testid=user-PERSIST]')).toContainText('MZ 5150');
     const rows = await page.evaluate(() => window.__arcadeTest.boardRows());
-    expect(rows.maze[0]).toMatchObject({ name: 'PERSIST', best: 5150, level: 3 });
+    expect(rows.maze.find((e) => e.userId)).toMatchObject({ initials: 'PER', score: 5150, level: 3 });
     await ctx.close();
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

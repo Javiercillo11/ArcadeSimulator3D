@@ -6,8 +6,9 @@ import {
 } from 'three';
 import { FONT_FAMILY } from '../core/font.js';
 
-export const ROOM = { minX: -5, maxX: 5, minZ: -4, maxZ: 4, height: 3.2 };
-const BOARD = { x: ROOM.minX + 0.03, y: 1.75, z: -0.6, w: 2.6, h: 1.62 };
+export const ROOM = { minX: -7, maxX: 7, minZ: -5, maxZ: 5, height: 3.2 };
+const BOARD = { x: ROOM.minX + 0.03, y: 1.85, z: -1.6, w: 4.0, h: 1.6 };
+const BOARD_PX = [1600, 640];
 
 function canvas(w, h) {
   const c = document.createElement('canvas');
@@ -51,7 +52,7 @@ function carpetTexture() {
     else { g.fillRect(-2, -2, 4, 4); }
     g.restore();
   }
-  return texture(c, [6, 5]);
+  return texture(c, [9, 6]);
 }
 
 // Pared: degradado violeta con un friso inferior.
@@ -68,7 +69,7 @@ function wallTexture() {
   g.fillRect(0, 214, 64, 42);
   g.fillStyle = '#3a2470';
   g.fillRect(0, 212, 64, 3);
-  return texture(c, [8, 1]);
+  return texture(c, [11, 1]);
 }
 
 function signTexture(textValue, color, w = 1024, h = 160, size = 72) {
@@ -144,13 +145,17 @@ export class Room {
     wall(Dp, ROOM.minX, 0, Math.PI / 2);
     wall(Dp, ROOM.maxX, 0, -Math.PI / 2);
 
-    // Paneles de luz en el techo.
+    // Paneles de luz en el techo. Uno es un fluorescente viejo que parpadea de vez en cuando.
     const panelMat = new MeshBasicMaterial({ color: 0xd8d0ff });
-    for (const x of [-2.5, 2.5]) for (const z of [-2, 1.5]) {
-      const p = add(new Mesh(new PlaneGeometry(1.2, 0.5), panelMat));
+    for (const x of [-4.5, 0, 4.5]) for (const z of [-3, 0.4, 3.4]) {
+      const flicker = x === 4.5 && z === 3.4;
+      const p = add(new Mesh(new PlaneGeometry(1.2, 0.5), flicker ? new MeshBasicMaterial({ color: 0xd8d0ff }) : panelMat));
       p.rotation.x = Math.PI / 2;
       p.position.set(x, Hh - 0.01, z);
+      if (flicker) this.flickerPanel = p;
     }
+    this.flickerT = 0;
+    this.flickerOn = true;
 
     // Tubos de neón a lo largo de las paredes.
     const tube = (len, color, x, y, z, ry) => {
@@ -176,21 +181,22 @@ export class Room {
     exit.position.set(0, 2.5, ROOM.maxZ - 0.07);
     exit.rotation.y = Math.PI;
 
-    // Carteles en la pared derecha.
-    const posters = [['MAZE', 'MUNCHER · 1UP', '#2b3cff', '#ff3d8b'], ['BARREL', 'CLIMB · 7000', '#ff3d3d', '#ffb23f'], ['HIGH', 'SCORE · 1987', '#7d4dff', '#2fd8ff']];
+    // Carteles en la pared de la entrada.
+    const posters = [['MAZE', 'MUNCHER · 1UP', '#2b3cff', '#ff3d8b'], ['BARREL', 'CLIMB · 7000', '#ff3d3d', '#ffb23f'], ['BRICK', 'BLAST · 1988', '#3dff8b', '#2b3cff'], ['HIGH', 'SCORE · 1987', '#7d4dff', '#2fd8ff']];
     posters.forEach(([t, s, a, b], i) => {
       const p = add(new Mesh(new PlaneGeometry(0.7, 0.98), new MeshStandardMaterial({ map: posterTexture(t, s, a, b), roughness: 0.7, emissive: 0xffffff, emissiveIntensity: 0.06 })));
-      p.position.set(ROOM.maxX - 0.02, 1.7, -2 + i * 1.6);
-      p.rotation.y = -Math.PI / 2;
+      const x = [-5.2, -3.6, 2.6, 4.0][i];
+      p.position.set(x, 1.7, ROOM.maxZ - 0.02);
+      p.rotation.y = Math.PI;
     });
 
-    // Banco acolchado junto a la pared derecha.
-    const bench = add(new Mesh(new BoxGeometry(0.5, 0.45, 1.8), new MeshStandardMaterial({ color: 0x8b1e4f, roughness: 0.7 })));
-    bench.position.set(ROOM.maxX - 0.45, 0.225, 1.6);
-    this.colliders.push({ minX: ROOM.maxX - 0.7, maxX: ROOM.maxX, minZ: 0.7, maxZ: 2.5, id: 'bench' });
+    // Banco acolchado junto a la entrada.
+    const bench = add(new Mesh(new BoxGeometry(1.8, 0.45, 0.5), new MeshStandardMaterial({ color: 0x8b1e4f, roughness: 0.7 })));
+    bench.position.set(-4.4, 0.225, ROOM.maxZ - 0.45);
+    this.colliders.push({ minX: -5.3, maxX: -3.5, minZ: ROOM.maxZ - 0.7, maxZ: ROOM.maxZ, id: 'bench' });
 
     // Tablero de récords: pantalla en la pared izquierda, con marco luminoso.
-    this.boardCanvas = canvas(1024, 640);
+    this.boardCanvas = canvas(BOARD_PX[0], BOARD_PX[1]);
     this.boardTexture = texture(this.boardCanvas);
     const frame = add(new Mesh(new BoxGeometry(0.06, BOARD.h + 0.12, BOARD.w + 0.12), new MeshStandardMaterial({ color: 0x0b0b14, emissive: 0x2fd8ff, emissiveIntensity: 0.35 })));
     frame.position.set(BOARD.x + 0.01, BOARD.y, BOARD.z);
@@ -203,10 +209,11 @@ export class Room {
     add(new HemisphereLight(0x6a5acd, 0x1a0f2e, 0.9));
     add(new AmbientLight(0x30284a, 0.6));
     const points = [
-      [0xffffff, 0, 2.9, -2, 14, 7],      // sobre las máquinas
-      [0xff3d8b, -3.5, 2.6, 2, 8, 6],
-      [0x2fd8ff, 3.5, 2.6, -1, 8, 6],
-      [0xb8a8ff, 0, 2.9, 2.2, 8, 7]
+      [0xffffff, 0, 2.9, -3, 16, 8],      // sobre las recreativas
+      [0xff3d8b, -4.5, 2.6, 1.5, 9, 7],
+      [0x2fd8ff, 4.5, 2.6, -1.5, 9, 7],
+      [0xb8a8ff, 0, 2.9, 2.6, 9, 8],
+      [0xfff0d8, 5.5, 2.7, 0.4, 7, 5]     // recepción
     ];
     for (const [color, x, y, z, intensity, dist] of points) {
       const l = new PointLight(color, intensity, dist, 1.6);
@@ -218,13 +225,25 @@ export class Room {
     this.fog = new Fog(new Color(0x0a0716), 7, 16);
   }
 
+  // Fluorescente viejo: casi siempre encendido, con tandas de parpadeos.
+  tick(dt, rnd) {
+    if (!this.flickerPanel) return;
+    this.flickerT -= dt;
+    if (this.flickerT <= 0) {
+      this.flickerOn = !this.flickerOn;
+      this.flickerT = this.flickerOn ? (rnd() < 0.25 ? 0.05 + rnd() * 0.1 : 2 + rnd() * 6) : 0.04 + rnd() * 0.12;
+      this.flickerPanel.material.color.setHex(this.flickerOn ? 0xd8d0ff : 0x2a2838);
+    }
+  }
+
   setQuality(q) {
     // En calidad baja solo queda la luz principal.
     this.lights.forEach((l, i) => { l.visible = q !== 'low' || i === 0; });
   }
 
-  // Redibuja el tablero: rows = { maze: [{name,best,level}], climb: [...] }, activeName resaltado.
-  drawBoard(rows, activeName, gameNames) {
+  // Redibuja el tablero con el TOP 5 de cada máquina: rows = { maze: [{ initials, score, level, userId }], … };
+  // las entradas del jugador activo van resaltadas.
+  drawBoard(rows, activeId, gameNames) {
     this.lastRows = rows;
     const g = this.boardCanvas.getContext('2d');
     const w = this.boardCanvas.width, h = this.boardCanvas.height;
@@ -238,35 +257,33 @@ export class Room {
     g.fillStyle = '#ffd23f';
     g.shadowColor = '#ffd23f';
     g.shadowBlur = 12;
-    g.fillText('RÉCORDS', w / 2, 30);
+    g.fillText('RÉCORDS DEL SALÓN', w / 2, 28);
     g.shadowBlur = 0;
-    const cols = [['maze', 40, '#2fd8ff'], ['climb', w / 2 + 20, '#ff3d8b']];
-    for (const [id, x0, color] of cols) {
+    const ids = Object.keys(rows);
+    const colW = (w - 40) / ids.length;
+    const colors = ['#2fd8ff', '#ff3d8b', '#3dff8b', '#ffd23f', '#b8a8ff'];
+    ids.forEach((id, k) => {
+      const x0 = 30 + k * colW, x1 = x0 + colW - 30;
       g.textAlign = 'left';
-      g.font = '24px ' + FONT_FAMILY + ', monospace';
-      g.fillStyle = color;
+      g.font = '20px ' + FONT_FAMILY + ', monospace';
+      g.fillStyle = colors[k % colors.length];
       g.fillText(gameNames[id], x0, 110);
-      g.fillRect(x0, 146, w / 2 - 60, 3);
-      const list = rows[id];
-      g.font = '22px ' + FONT_FAMILY + ', monospace';
-      if (!list.length) {
-        g.fillStyle = '#7a86c8';
-        g.fillText('SIN JUGADORES', x0, 180);
-      }
-      list.slice(0, 5).forEach((r, i) => {
-        const y = 176 + i * 76;
-        const mine = r.name === activeName;
-        g.fillStyle = mine ? '#ffd23f' : '#ffffff';
-        g.textAlign = 'left';
-        g.fillText((i + 1) + '. ' + r.name, x0, y);
-        g.textAlign = 'right';
-        g.fillText(String(r.best), x0 + w / 2 - 60, y);
-        g.font = '14px ' + FONT_FAMILY + ', monospace';
-        g.fillStyle = '#7a86c8';
-        g.fillText(r.best ? 'NIVEL ' + r.level : '—', x0 + w / 2 - 60, y + 30);
+      g.fillRect(x0, 142, x1 - x0, 3);
+      rows[id].slice(0, 5).forEach((r, i) => {
+        const y = 170 + i * 84;
+        const mine = activeId && r.userId === activeId;
         g.font = '22px ' + FONT_FAMILY + ', monospace';
+        g.fillStyle = mine ? '#ffd23f' : i === 0 ? '#ff8ad8' : '#ffffff';
+        g.textAlign = 'left';
+        g.fillText((i + 1) + '. ' + r.initials, x0, y);
+        g.textAlign = 'right';
+        g.fillText(String(r.score), x1, y + 32);
+        g.font = '12px ' + FONT_FAMILY + ', monospace';
+        g.fillStyle = '#7a86c8';
+        g.textAlign = 'left';
+        g.fillText(r.userId ? 'NIVEL ' + r.level : 'DEL SALÓN', x0, y + 38);
       });
-    }
+    });
     this.boardTexture.needsUpdate = true;
   }
 }

@@ -34,6 +34,7 @@ async function boot() {
     app.init();
   } catch (e) {
     // El contexto WebGL puede fallar al crearse aunque la comprobación pase (drivers bloqueados).
+    console.error('No se pudo arrancar el salón 3D:', e);
     if (app.renderer) app.renderer.setAnimationLoop(null);
     noWebGL();
     return;

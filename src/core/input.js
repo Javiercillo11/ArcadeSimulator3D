@@ -13,9 +13,10 @@ const KEYMAP = {
   KeyE: 'use',
   KeyF: 'zoom',
   KeyQ: 'stand',
+  KeyG: 'big',
   ShiftLeft: 'run', ShiftRight: 'run'
 };
-export const ACTIONS = ['up', 'down', 'left', 'right', 'jump', 'start', 'pause', 'mute', 'use', 'zoom', 'stand', 'run'];
+export const ACTIONS = ['up', 'down', 'left', 'right', 'jump', 'start', 'pause', 'mute', 'use', 'zoom', 'stand', 'run', 'big'];
 const DIRS = { up: 1, down: 1, left: 1, right: 1 };
 
 const down = {};

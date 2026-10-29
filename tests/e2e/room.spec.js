@@ -4,24 +4,26 @@ import { test, expect, open, state, step, storage, enterRoom, sitAt } from './he
 test.describe('sala', () => {
   test('no se atraviesan las máquinas ni las paredes', async ({ page }) => {
     await enterRoom(page);
-    const cabs = await page.evaluate(() => window.__arcadeTest.cabinets());
+    const cabs = await page.evaluate(() => window.__arcadeTest.cabinets().filter((c) => ['maze', 'climb', 'brick'].includes(c.id)));
     for (const c of cabs) {
       const x = (c.minX + c.maxX) / 2;
-      await page.evaluate(([px]) => window.__arcadeTest.teleport(px, 1.5, 0), [x]);
+      await page.evaluate(([px]) => window.__arcadeTest.teleport(px, -1.0, 0), [x]);
       await page.keyboard.down('KeyW');
       await step(page, 300);
       await page.keyboard.up('KeyW');
+      // Se para contra el taburete (o la máquina), nunca dentro de ella.
       const p = (await state(page)).player;
       expect(p.z, c.id).toBeGreaterThanOrEqual(c.maxZ + 0.27);
-      expect(p.z, c.id).toBeLessThan(c.maxZ + 0.35);
+      expect(p.z, c.id).toBeLessThan(-3.0);
     }
     // Paredes: correr en cada dirección durante 6 s.
-    const walls = [['KeyA', 'x', -5], ['KeyD', 'x', 5], ['KeyS', 'z', 4]];
+    const room = await page.evaluate(() => window.__arcadeTest.room());
+    const walls = [['KeyA', 'x', room.minX], ['KeyD', 'x', room.maxX], ['KeyS', 'z', room.maxZ]];
     for (const [key, axis, limit] of walls) {
-      await page.evaluate(() => window.__arcadeTest.teleport(2, -1, 0));   // lejos del banco
+      await page.evaluate(() => window.__arcadeTest.teleport(0.8, -1, 0));   // por un pasillo libre
       await page.keyboard.down('ShiftLeft');
       await page.keyboard.down(key);
-      await step(page, 360);
+      await step(page, 480);
       await page.keyboard.up(key);
       await page.keyboard.up('ShiftLeft');
       const v = (await state(page)).player[axis];
@@ -30,9 +32,9 @@ test.describe('sala', () => {
     }
   });
 
-  test('se desliza a lo largo de una máquina en lugar de quedarse pegado', async ({ page }) => {
+  test('se desliza a lo largo de una mesa en lugar de quedarse pegado', async ({ page }) => {
     await enterRoom(page);
-    const cab = await page.evaluate(() => window.__arcadeTest.cabinets().find((c) => c.id === 'maze'));
+    const cab = await page.evaluate(() => window.__arcadeTest.cabinets().find((c) => c.id === 'hockey'));
     await page.evaluate(([x, z]) => window.__arcadeTest.teleport(x, z, Math.PI / 4), [cab.maxX - 0.1, cab.maxZ + 0.6]);
     const x0 = (await state(page)).player.x;
     await page.keyboard.down('KeyW');
@@ -130,7 +132,7 @@ test.describe('sala', () => {
     await page.locator('[data-testid=menu-sens]').fill('2');
     await page.reload();
     await page.waitForSelector('html[data-ready]');
-    expect((await storage(page)).settings).toEqual({ muted: true, crt: false, quality: 'low', mouseSens: 2 });
+    expect((await storage(page)).settings).toEqual({ muted: true, crt: false, quality: 'low', mouseSens: 2, jukebox: null });
     // M alterna el silencio en cualquier momento.
     await page.click('[data-testid=enter-room]');
     await page.keyboard.press('KeyM');
@@ -150,18 +152,20 @@ test.describe('sala', () => {
 
   test('el tablero de récords de la pared se actualiza al batir un récord', async ({ page }) => {
     await enterRoom(page, 'TABLERO');
-    expect((await page.evaluate(() => window.__arcadeTest.boardRows())).climb[0]).toMatchObject({ name: 'TABLERO', best: 0 });
+    // Antes de jugar, el tablero muestra el TOP de fábrica del salón.
+    expect((await page.evaluate(() => window.__arcadeTest.boardRows())).climb[0]).toMatchObject({ initials: 'SAL', score: 10000, userId: null });
     await sitAt(page, 'climb');
     await page.keyboard.press('Enter');
     await step(page, 1);
     await page.evaluate(() => window.__arcadeTest.finishWith(4200, 2));
     // El tablero es un canvas: se comprueba con las filas que se le acaban de dibujar.
     const drawn = await page.evaluate(() => window.__arcadeTest.boardRows());
-    expect(drawn.climb[0]).toMatchObject({ name: 'TABLERO', best: 4200, level: 2 });
+    expect(drawn.climb[4]).toMatchObject({ initials: 'TAB', score: 4200, level: 2 });
+    expect(drawn.climb).toHaveLength(10);
   });
 });
 
-test('datos de la v1 (schemaVersion 1) se migran sin perder récords', async ({ page }) => {
+test('datos de la v1 (schemaVersion 1) se migran sin perder récords, con monedas y TOP 10', async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem('arcade.v1')) return;
     localStorage.setItem('arcade.v1', JSON.stringify({
@@ -176,8 +180,10 @@ test('datos de la v1 (schemaVersion 1) se migran sin perder récords', async ({ 
   await expect(page.locator('[data-testid=user-VETERANO]')).toContainText('MZ 9100');
   await expect(page.locator('[data-testid=enter-room]')).toHaveText('ENTRAR AL SALÓN COMO VETERANO');
   const st = await storage(page);
-  expect(st.schemaVersion).toBe(2);
-  expect(st.settings).toEqual({ muted: false, crt: true, quality: 'high', mouseSens: 1 });
+  expect(st.schemaVersion).toBe(4);
+  expect(st.settings).toEqual({ muted: false, crt: true, quality: 'high', mouseSens: 1, jukebox: null });
+  expect(st.users[0]).toMatchObject({ coins: 3, initials: 'VET' });
+  expect(st.hallOfFame.maze[1]).toMatchObject({ initials: 'VET', score: 9100, userId: 'u_old' });
 });
 
 test('sin localStorage se juega en modo memoria con aviso', async ({ page }) => {

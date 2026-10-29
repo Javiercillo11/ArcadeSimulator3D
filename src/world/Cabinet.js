@@ -1,10 +1,12 @@
 /* Máquina recreativa procedural: mueble, pantalla CRT, marquesina luminosa, palanca y botones animados.
    Coordenadas locales: origen en el suelo, centro del mueble; la parte delantera mira hacia +z. */
 import {
-  Group, Mesh, Shape, ExtrudeGeometry, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry,
-  MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, NearestFilter, Vector3, Quaternion, Matrix4
+  Group, Mesh, Shape, ExtrudeGeometry, BoxGeometry, PlaneGeometry, CylinderGeometry, SphereGeometry, TubeGeometry,
+  CurvePath, LineCurve3, MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, NearestFilter,
+  Vector3, Quaternion, Matrix4
 } from 'three';
 import { createCrtMaterial } from './CrtMaterial.js';
+import { sideArt, marqueeArt, bezelArt, deckArt, coinDoorArt, stickers } from './cabinetArt.js';
 import { FONT_FAMILY } from '../core/font.js';
 
 const W = 0.72;          // ancho
@@ -24,64 +26,25 @@ const PANEL_B = new Vector3(0, 0.99, 0.40);   // borde delantero
 const SCREEN_A = new Vector3(0, 1.10, 0.10);  // borde inferior del cristal
 const SCREEN_B = new Vector3(0, 1.58, 0.0);   // borde superior
 
-function marqueeTexture(title, colors) {
-  const c = document.createElement('canvas');
-  c.width = 512;
-  c.height = 128;
-  const g = c.getContext('2d');
-  const grad = g.createLinearGradient(0, 0, 0, 128);
-  grad.addColorStop(0, colors.marqueeTop);
-  grad.addColorStop(1, colors.marqueeBottom);
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 512, 128);
-  g.strokeStyle = colors.accent;
-  g.lineWidth = 6;
-  g.strokeRect(8, 8, 496, 112);
-  g.font = '40px ' + FONT_FAMILY + ', monospace';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.shadowColor = colors.accent;
-  g.shadowBlur = 18;
-  g.fillStyle = '#ffffff';
-  g.fillText(title, 256, 66);
-  g.shadowBlur = 0;
-  g.fillStyle = colors.accent;
-  g.fillText(title, 256, 64);
+// Canto delantero del perfil, por donde corre la moldura luminosa (T-molding).
+const FRONT_EDGE = PROFILE.slice(1, 10);
+const STICK = [-0.17, 0.02];
+const BUTTONS = { jump: [0.06, 0.03], jump2: [0.15, 0.0], start: [-0.02, -0.08] };
+
+function tex(c, anisotropy = 8) {
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
-  return t;
-}
-
-// Los colores de la máquina vienen como número (three) o cadena CSS; el canvas solo acepta cadenas.
-const css = (c) => (typeof c === 'number' ? '#' + c.toString(16).padStart(6, '0') : c);
-
-// Dibujo lateral (vinilo): franjas diagonales sobre el color del mueble.
-function sideTexture(colors) {
-  const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 512;
-  const g = c.getContext('2d');
-  g.fillStyle = css(colors.body);
-  g.fillRect(0, 0, 256, 512);
-  for (let i = 0; i < 4; i++) {
-    g.fillStyle = css(i % 2 ? colors.accent : colors.stripe);
-    g.beginPath();
-    g.moveTo(0, 300 + i * 34);
-    g.lineTo(256, 180 + i * 34);
-    g.lineTo(256, 200 + i * 34);
-    g.lineTo(0, 320 + i * 34);
-    g.fill();
-  }
-  const t = new CanvasTexture(c);
-  t.colorSpace = SRGBColorSpace;
+  t.anisotropy = anisotropy;
   return t;
 }
 
 export class Cabinet {
-  // opts: { id, title, screenCanvas, colors: { body, stripe, accent, marqueeTop, marqueeBottom, buttons:[a,b] } }
+  // opts: { id, title, number, screenCanvas, colors: { body, stripe, accent, marqueeTop, marqueeBottom, buttons:[a,b] } }
   constructor(opts) {
     this.id = opts.id;
     this.title = opts.title;
+    this.promptText = opts.promptText;
+    this.hint = opts.hint || null;
     const colors = opts.colors;
     const group = new Group();
     group.name = 'cabinet-' + opts.id;
@@ -90,7 +53,13 @@ export class Cabinet {
     const bodyMat = new MeshStandardMaterial({ color: colors.body, roughness: 0.55, metalness: 0.05 });
     const darkMat = new MeshStandardMaterial({ color: 0x0b0b14, roughness: 0.8 });
     const trimMat = new MeshStandardMaterial({ color: colors.accent, roughness: 0.4, emissive: colors.accent, emissiveIntensity: 0.25 });
-    const sideMat = new MeshStandardMaterial({ map: sideTexture(colors), roughness: 0.6 });
+    // Vinilo lateral: el derecho va en espejo para que los textos se lean bien desde fuera.
+    const [artL, artR] = sideArt(opts.id, colors);
+    // Un poco de brillo propio para que el arte se lea en la penumbra del salón.
+    const sideMats = [artL, artR].map((c) => {
+      const t = tex(c);
+      return new MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.22, roughness: 0.45, metalness: 0.05 });
+    });
 
     // Laterales: el perfil extruido a lo ancho.
     const shape = new Shape();
@@ -101,15 +70,20 @@ export class Cabinet {
     const uv = sideGeo.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + 0.39) / D, uv.getY(i) / H);
     for (const sx of [-1, 1]) {
-      const side = new Mesh(sideGeo, [sideMat, bodyMat]);
+      const side = new Mesh(sideGeo, [sideMats[sx < 0 ? 0 : 1], bodyMat]);
       side.position.x = sx < 0 ? -W / 2 + SIDE : W / 2;
       group.add(side);
     }
-    // Moldura luminosa en el canto delantero de cada lateral.
+    // Moldura luminosa (T-molding) a lo largo de todo el canto delantero de cada lateral.
+    const ledMat = new MeshBasicMaterial({ color: colors.accent });
     for (const sx of [-1, 1]) {
-      const edge = new Mesh(new BoxGeometry(0.012, 0.86, 0.012), trimMat);
-      edge.position.set(sx * (W / 2 - SIDE / 2), 0.44, 0.305);
-      group.add(edge);
+      const path = new CurvePath();
+      const x = sx * (W / 2 - SIDE / 2);
+      for (let i = 0; i < FRONT_EDGE.length - 1; i++) {
+        const [z0, y0] = FRONT_EDGE[i], [z1, y1] = FRONT_EDGE[i + 1];
+        path.add(new LineCurve3(new Vector3(x, y0, z0 + 0.004), new Vector3(x, y1, z1 + 0.004)));
+      }
+      group.add(new Mesh(new TubeGeometry(path, 120, 0.017, 6, false), ledMat));
     }
 
     const inner = W - SIDE * 2;
@@ -123,8 +97,10 @@ export class Cabinet {
     box(inner, 0.88, 0.02, bodyMat, 0, 0.44, 0.29);                // frontal inferior
     box(inner, 0.02, D, bodyMat, 0, H - 0.01, 0);                  // techo
     box(inner, 0.08, 0.1, darkMat, 0, 0.04, 0.27);                 // zócalo
-    // Puerta de monedas: placa oscura con dos ranuras rojas.
-    box(0.26, 0.2, 0.01, darkMat, 0, 0.55, 0.305);
+    // Puerta de monedas metálica con dos ranuras rojas iluminadas.
+    const door = new Mesh(new PlaneGeometry(0.26, 0.2), new MeshStandardMaterial({ map: tex(coinDoorArt()), metalness: 0.7, roughness: 0.35 }));
+    door.position.set(0, 0.55, 0.302);
+    group.add(door);
     const slotMat = new MeshStandardMaterial({ color: 0xff2a3a, emissive: 0xff2a3a, emissiveIntensity: 1.2 });
     box(0.03, 0.06, 0.01, slotMat, -0.06, 0.57, 0.312);
     box(0.03, 0.06, 0.01, slotMat, 0.06, 0.57, 0.312);
@@ -139,17 +115,20 @@ export class Cabinet {
     panel.position.copy(PANEL_A).add(PANEL_B).multiplyScalar(0.5);
     panel.rotation.x = panelTilt;
     group.add(panel);
-    const deck = new Mesh(new BoxGeometry(inner, 0.03, panelLen), new MeshStandardMaterial({ color: colors.stripe, roughness: 0.5 }));
+    // Cubierta impresa (cara superior) con rótulos de los mandos y tarjeta de instrucciones.
+    const deckMat = new MeshStandardMaterial({ map: tex(deckArt(opts.id, colors, { inner, len: panelLen, stick: STICK, buttons: BUTTONS })), roughness: 0.35 });
+    const deckSide = new MeshStandardMaterial({ color: colors.stripe, roughness: 0.5 });
+    const deck = new Mesh(new BoxGeometry(inner, 0.03, panelLen), [deckSide, deckSide, deckMat, deckSide, deckSide, deckSide]);
     deck.position.y = -0.015;
     panel.add(deck);
     this.panel = panel;
 
     // Palanca: base, varilla y bola en un pivote que se inclina con la entrada.
     const stickBase = new Mesh(new CylinderGeometry(0.035, 0.04, 0.012, 24), darkMat);
-    stickBase.position.set(-0.17, 0.006, 0.02);
+    stickBase.position.set(STICK[0], 0.006, STICK[1]);
     panel.add(stickBase);
     const pivot = new Group();
-    pivot.position.set(-0.17, 0.01, 0.02);
+    pivot.position.set(STICK[0], 0.01, STICK[1]);
     const shaft = new Mesh(new CylinderGeometry(0.007, 0.007, 0.075, 12), new MeshStandardMaterial({ color: 0xc8c8d0, metalness: 0.8, roughness: 0.3 }));
     shaft.position.y = 0.0375;
     const ball = new Mesh(new SphereGeometry(0.022, 20, 14), new MeshStandardMaterial({ color: colors.buttons[0], roughness: 0.25 }));
@@ -169,9 +148,9 @@ export class Cabinet {
       return cap;
     };
     this.buttons = {
-      jump: makeButton(0.06, 0.03, 0.022, colors.buttons[1]),
-      jump2: makeButton(0.15, 0.0, 0.022, colors.buttons[0]),
-      start: makeButton(-0.02, -0.08, 0.012, 0xffffff)
+      jump: makeButton(...BUTTONS.jump, 0.022, colors.buttons[1]),
+      jump2: makeButton(...BUTTONS.jump2, 0.022, colors.buttons[0]),
+      start: makeButton(...BUTTONS.start, 0.012, 0xffffff)
     };
 
     // Pantalla: bisel negro y el CRT encima, inclinados hacia atrás.
@@ -181,7 +160,13 @@ export class Cabinet {
     screenGroup.rotation.x = -screenTilt;
     group.add(screenGroup);
     const bezelLen = SCREEN_A.distanceTo(SCREEN_B);
-    const bezel = new Mesh(new BoxGeometry(inner, bezelLen, 0.02), darkMat);
+    // Bisel impreso alrededor del cristal.
+    const bezelArtMat = new MeshStandardMaterial({
+      map: tex(bezelArt(opts.id, colors, { aspect: bezelLen / inner, w: SCREEN_W / inner, h: SCREEN_H / bezelLen })),
+      roughness: 0.5, emissive: 0xffffff, emissiveIntensity: 0.08
+    });
+    bezelArtMat.emissiveMap = bezelArtMat.map;
+    const bezel = new Mesh(new BoxGeometry(inner, bezelLen, 0.02), [darkMat, darkMat, darkMat, darkMat, bezelArtMat, darkMat]);
     bezel.position.z = -0.012;
     screenGroup.add(bezel);
     this.texture = new CanvasTexture(opts.screenCanvas);
@@ -195,12 +180,54 @@ export class Cabinet {
     screenGroup.add(screen);
     this.screen = screen;
     this.screenGroup = screenGroup;
+    if (opts.broken) {
+      // Cinta de precinto cruzada sobre el cristal.
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 48;
+      const g = c.getContext('2d');
+      g.fillStyle = '#ffd23f';
+      g.fillRect(0, 0, 512, 48);
+      g.fillStyle = '#111';
+      for (let x = -20; x < 540; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 16, 0); g.lineTo(x - 4, 48); g.lineTo(x - 20, 48); g.fill(); }
+      g.fillStyle = '#ffd23f';
+      g.fillRect(70, 8, 372, 32);
+      g.fillStyle = '#111';
+      g.font = '22px ' + FONT_FAMILY + ', monospace';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('FUERA DE SERVICIO', 256, 26);
+      const tapeMat = new MeshBasicMaterial({ map: tex(c), transparent: true });
+      for (const a of [0.55, -0.55]) {
+        const tape = new Mesh(new PlaneGeometry(0.48, 0.045), tapeMat);
+        tape.position.z = 0.004;
+        tape.rotation.z = a;
+        screenGroup.add(tape);
+      }
+    }
 
-    // Marquesina luminosa.
-    const marquee = new Mesh(new PlaneGeometry(inner, 0.24), new MeshBasicMaterial({ map: marqueeTexture(opts.title, colors) }));
+    // Marquesina retroiluminada y una tira de luz bajo ella que ilumina el bisel.
+    const marquee = new Mesh(new PlaneGeometry(inner, 0.24), new MeshBasicMaterial({ map: tex(marqueeArt(opts.id, opts.title, colors)) }));
     marquee.position.set(0, 1.73, 0.085);
     marquee.rotation.x = -Math.atan2(0.06, 0.26);
     group.add(marquee);
+    const strip = box(inner, 0.012, 0.03, new MeshBasicMaterial({ color: opts.broken ? 0x333333 : 0xfff4d8 }), 0, 1.598, 0.04);
+    strip.rotation.x = 0.2;
+
+    // Pegatinas: planos con recorte (alphaTest) pegados a la superficie, un poco torcidos.
+    for (const st of stickers(opts.id, opts.number || 1, colors)) {
+      const mat = new MeshStandardMaterial({
+        map: tex(st.c), alphaTest: 0.5, roughness: 0.3, metalness: 0,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+      });
+      const h = st.w * st.c.height / st.c.width;
+      const m = new Mesh(new PlaneGeometry(st.w, h), mat);
+      if (st.face === 'front') m.position.set(st.x, st.y, 0.3015);
+      else if (st.face === 'left') { m.position.set(-W / 2 - 0.0015, st.y, st.x); m.rotation.y = -Math.PI / 2; }
+      else { m.position.set(W / 2 + 0.0015, st.y, st.x); m.rotation.y = Math.PI / 2; }
+      m.rotation.z = st.rot;
+      group.add(m);
+    }
 
     this.halfW = W / 2;
     this.front = 0.42;

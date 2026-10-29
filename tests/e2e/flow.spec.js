@@ -27,11 +27,11 @@ test.describe('flujo', () => {
     expect(s.hands.visible).toBe(true);
     await expect(page.locator('[data-testid=hud-user]')).toHaveText('JAVI');
 
-    // Camina con el teclado: de la entrada hasta delante de MAZE MUNCHER (x = -0.95).
-    await page.evaluate(() => window.__arcadeTest.teleport(-0.95, 2.6, 0));
+    // Camina con el teclado: desde la entrada hasta delante de MAZE MUNCHER (x = -2).
+    await page.evaluate(() => window.__arcadeTest.teleport(-2.0, 2.6, 0));
     await expect(page.locator('[data-testid=prompt]')).toBeHidden();
     await page.keyboard.down('KeyW');
-    for (let i = 0; i < 40 && !(await state(page)).prompt; i++) await step(page, 10);
+    for (let i = 0; i < 60 && !(await state(page)).prompt; i++) await step(page, 10);
     await page.keyboard.up('KeyW');
     s = await state(page);
     expect(s.prompt).toBe('maze');
@@ -50,7 +50,7 @@ test.describe('flujo', () => {
     s = await state(page);
     expect(s.app).toBe('CABINET');
     expect(s.cabinet).toBe('maze');
-    expect(s.machines).toEqual({ maze: 'TITLE', climb: 'ATTRACT' });
+    expect(s.machines).toMatchObject({ maze: 'TITLE', climb: 'ATTRACT', brick: 'ATTRACT', hockey: 'ATTRACT', skee: 'ATTRACT', claw: 'ATTRACT' });
     expect(s.hands.sit).toBe(1);
     await expect(page.locator('#cabinet-hint')).toBeVisible();
 

@@ -37,11 +37,18 @@ export function navigate(container, delta) {
   list[next].focus();
 }
 
-let toastTimer = 0;
+// Avisos apilados: si llegan varios a la vez (premio + logro) se ven todos, no se tapan.
+const MAX_TOASTS = 3;
 export function toast(msg, ms) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.classList.add('is-visible');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('is-visible'), ms || 3200);
+  const box = $('toast');
+  const item = document.createElement('div');
+  item.className = 'toast-item';
+  item.textContent = msg;
+  box.appendChild(item);
+  while (box.children.length > MAX_TOASTS) box.firstChild.remove();
+  box.classList.add('is-visible');
+  setTimeout(() => {
+    item.remove();
+    if (!box.children.length) box.classList.remove('is-visible');
+  }, ms || 3200);
 }
