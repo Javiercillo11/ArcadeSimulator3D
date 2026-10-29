@@ -1,139 +1,142 @@
 # Pruebas
 
-## Última ejecución
+Dos baterías:
 
-| | |
+- **Vitest** (`tests/unit/`): la lógica de datos y de los dos juegos, sin navegador. Los juegos siguen el contrato v2 (sin DOM ni canvas), así que se instancian directamente con una semilla fija y una entrada simulada.
+- **Playwright** (`tests/e2e/`): el **HTML final** (`dist/arcade.html`) en Chromium real, abierto por `file://`. Todas las pruebas fallan si aparece un error en consola o una excepción de página. Solo se ignoran los avisos de rendimiento del driver gráfico por software (`GL Driver Message … GPU stall due to ReadPixels`), que no proceden de la aplicación.
+
+`npm test` ejecuta las dos baterías; `test:e2e` hace antes el build.
+
+## Resultado de la última ejecución
+
+Ejecutado el 29/10/2026 con `npm test`, en Linux (WSL2), Node 24.22.1, Vitest 2.1.8, Playwright 1.64.1 y Chromium sin ventana, con WebGL por software (SwiftShader).
+
+| Batería | Pruebas | Resultado | Tiempo |
+|---|---|---|---|
+| Vitest | 60 | 60 en verde | 0,37 s |
+| Playwright | 25 | 25 en verde | 39,1 s |
+
+Build: `dist/arcade.html` de 777 KB (226 KB comprimido con gzip). Sin recursos externos: se ha comprobado que no queda ningún `src` ni `href` que no sea `data:`.
+
+## Vitest
+
+### Datos (`data.test.js`, 19 pruebas)
+
+| Prueba | Qué comprueba |
 |---|---|
-| Fecha | 28/10/2026 |
-| Comando | `npm test` (Playwright 1.64.1, Chromium headless shell 156, Node 24.22) |
-| Entorno | WSL2 · Ubuntu 26.04 |
-| Resultado | **59 de 59 pasan** (≈20 s, 4 workers) |
-| Estabilidad | `--repeat-each=3`: 177 de 177 pasan, sin pruebas inestables |
+| Crear el primer usuario | Se normaliza a mayúsculas y queda activo |
+| Recarga | El usuario y el activo sobreviven a `load()` |
+| 5 usuarios | El sexto devuelve `LIMIT` y no se crea |
+| Vacíos | `''` y `'    '` devuelven `EMPTY` |
+| Normalización | Recorta, pasa a mayúsculas, máximo 10 caracteres, caracteres no permitidos → `INVALID`, admite Ñ y acentos |
+| Duplicados | `javi` frente a `JAVI` → `DUPLICATE` con el usuario existente |
+| Borrar | Borra al usuario y deja de haber uno activo |
+| Récords aislados | Independientes por usuario y por juego; récord global |
+| Puntuación inferior | No modifica el récord |
+| Historial | Solo las últimas 20 partidas por juego |
+| Tabla y avisos | Orden de mayor a menor; los oyentes reciben el cambio |
+| Persistencia de récords | Sobreviven a recargar |
+| Migración v1 → v2 | Conserva usuarios, récords y ajustes, añade `quality` y `mouseSens`, no crea copia de seguridad y guarda la versión 2 |
+| Datos dañados | Duplicados, ids inválidos, récords negativos y juegos desconocidos se descartan o reparan; se guarda copia en `arcade.backup` |
+| JSON ilegible | Copia de seguridad y arranque limpio |
+| Versión desconocida | Se trata como dañada |
+| Ajustes fuera de rango | Vuelven al valor por defecto |
+| Sin localStorage | Modo memoria: se puede crear usuario y `save()` devuelve `false` |
+| Importar | JSON válido sí; texto no válido no |
 
-Todas las pruebas fallan si aparece cualquier error de consola o una excepción de página (fixture automático `consoleErrors` en `tests/helpers.js`).
+### MAZE MUNCHER (`maze.test.js`, 21 pruebas)
 
-## Automatizadas
-
-### Usuarios · `tests/users.spec.js`
-
-| Prueba | Resultado |
+| Prueba | Qué comprueba |
 |---|---|
-| Se crea el primer usuario y se puede jugar al momento | ✅ |
-| El usuario sigue ahí tras recargar | ✅ |
-| Se crea y se selecciona un segundo usuario | ✅ |
-| Se crean exactamente 5 usuarios y el sexto se bloquea con el aviso «LÍMITE DE 5 JUGADORES» (también en la capa de datos) | ✅ |
-| Se rechaza un nombre vacío o de solo espacios | ✅ |
-| Los nombres se recortan, pasan a mayúsculas y se limitan a 10 caracteres | ✅ |
-| Un duplicado («javi» frente a «JAVI») no crea otro perfil y se ofrece seleccionar el existente | ✅ |
-| Los récords son independientes por usuario y por juego | ✅ |
-| Datos dañados: se recupera lo válido y el original queda en `arcade.backup` | ✅ |
-| JSON ilegible: copia de seguridad y arranque limpio | ✅ |
+| Mapa | 28×31, 240 puntos, 4 superpíldoras, todo alcanzable desde la salida |
+| Contrato | `score`, `lives`, `level`, `state` y `gameOver`; el nivel inicial se puede elegir; arranca en READY y pasa a PLAYING sola |
+| Determinismo | Misma semilla y misma entrada dan el mismo estado tras 800 pasos |
+| Cuatro direcciones | El jugador responde a arriba, abajo, izquierda y derecha |
+| Paredes | Barrido de todas las casillas junto a pared (más de 300 casos): nunca entra en una pared |
+| Giro guardado | El giro pedido se hace en el primer cruce posible |
+| Punto y superpíldora | +10 y +50, la casilla queda vacía, modo vulnerable en los 4 enemigos y sonidos `chomp`/`power` |
+| Enemigos y modos | Salen de casa, se mueven y pasan de dispersión a persecución a los 7 s |
+| Objetivos | Persecución distinta por enemigo; el tímido se retira cuando está cerca; en dispersión cada uno va a su esquina |
+| Colisión | Quita una vida y reinicia las posiciones |
+| Cadena | 200 / 400 / 800 / 1600, y se reinicia con cada superpíldora |
+| Ojos | Vuelven a casa y el enemigo sale de nuevo |
+| Fin del modo vulnerable | Termina a los 6 s del nivel 1 |
+| GAME_OVER | Tras perder 3 vidas; `gameOver` pasa a ser `true` al acabar la animación |
+| Nivel superado | Al comer el último punto se pasa al nivel 2 con 244 puntos |
+| Fruta | Aparece a los 70 y a los 170 puntos, y vale 100 en el nivel 1 |
+| Vida extra | A los 10 000 puntos, una sola vez |
+| Dificultad | Velocidades, vulnerabilidad y ciclos cambian con el nivel |
 
-### MAZE MUNCHER · `tests/maze.spec.js`
+### BARREL CLIMB (`climb.test.js`, 20 pruebas)
 
-| Prueba | Resultado |
+| Prueba | Qué comprueba |
 |---|---|
-| El mapa tiene 240 puntos y 4 superpíldoras, y todo es alcanzable | ✅ |
-| El jugador responde a las cuatro direcciones (y a WASD) | ✅ |
-| No atraviesa paredes: desde cada casilla libre se empuja contra cada pared vecina durante 20 pasos (más de 300 combinaciones) | ✅ |
-| Punto: +10 y desaparece. Superpíldora: +50 y activa el modo vulnerable en los 4 enemigos | ✅ |
-| Los 4 enemigos cambian de posición y de modo (dispersión → persecución a los 7 s) y salen de casa | ✅ |
-| Cada enemigo tiene un objetivo de persecución distinto | ✅ |
-| La colisión con un enemigo normal quita una vida y reinicia las posiciones | ✅ |
-| Comer enemigos encadenados da 200 / 400 / 800 / 1600 | ✅ |
-| Los ojos de un enemigo comido vuelven a la casa y vuelve a salir | ✅ |
-| La pausa congela el estado (120 pasos sin cambios) y al reanudar continúa igual | ✅ |
-| Perder las 3 vidas lleva a GAME OVER y a la pantalla de fin de partida | ✅ |
-| Al comer todos los puntos se pasa al nivel 2 | ✅ |
-| La fruta aparece a los 70 puntos comidos y suma su valor | ✅ |
-| El récord se guarda (con «¡NUEVO RÉCORD!») y se recupera tras recargar | ✅ |
-| Velocidades, vulnerabilidad y ciclos cambian con el nivel | ✅ |
+| Contrato | Estado legible y nivel inicial; arranca en READY |
+| Determinismo | Misma semilla y misma entrada, con barriles reales, dan el mismo estado |
+| Vigas | Camina pegado a la superficie inclinada (error < 0,001 px) a 0,75 px por paso |
+| Escaleras | Sube y baja solo alineado; las escaleras rotas no se usan |
+| Salto | Arco de entre 12 y 20 px, entre 30 y 45 pasos en el aire, aterriza en la viga |
+| Caída alta | Quita una vida (`fall`) |
+| Martillo | Con martillo no se suben escaleras |
+| Tecla mantenida | Si sigue pulsada al perder una vida, no cuenta hasta soltarla (equivale al `input.clear()` de la versión anterior) |
+| Barriles | Ruedan, bajan por las 6 vigas y desaparecen; con una semilla dada, unos bajan escaleras y otros no |
+| Lanzamiento | El robot lanza barriles solo |
+| Contacto | Un barril o una llama quitan una vida (`hit`) |
+| Saltar un barril | +100 saltando en cualquiera de los 9 pasos de la ventana |
+| Martillazo | 300, 500 u 800 |
+| Vida extra | A los 7000 puntos |
+| Rescate | Suma el bonus, pasa al nivel 2 con el bonus de ese nivel y el jugador vuelve abajo |
+| Bonus | Baja 100 cada 2 s; si llega a 0 se pierde una vida (`time`) |
+| GAME_OVER | Tras perder 3 vidas |
+| Dificultad | Intervalo, velocidad, llamas y probabilidad de escalera suben con el nivel; el bonus tope es 8000 |
 
-### BARREL CLIMB · `tests/climb.spec.js`
+## Playwright (sobre `dist/arcade.html`)
 
-| Prueba | Resultado |
+### Flujo (`flow.spec.js`, 7 pruebas)
+
+| Prueba | Qué comprueba |
 |---|---|
-| El jugador camina sobre las vigas inclinadas sin atravesarlas (y = suelo en cada muestra) | ✅ |
-| Sube y baja escaleras solo cuando está alineado; las escaleras rotas no se pueden subir | ✅ |
-| El salto sigue un arco (12–20 px de altura, 30–45 pasos en el aire) y aterriza en la viga | ✅ |
-| Los barriles ruedan, caen por las 6 vigas hasta el bidón y a veces bajan escaleras (con semilla fija) | ✅ |
-| El contacto con un barril quita una vida | ✅ |
-| El contacto con una llama quita una vida | ✅ |
-| Una caída alta quita una vida | ✅ |
-| Saltar un barril suma 100, saltando en cualquiera de los 9 pasos de la ventana de tiempo | ✅ |
-| El martillo destruye barriles con 300, 500 u 800 puntos | ✅ |
-| Con el martillo no se puede subir escaleras | ✅ |
-| Al llegar a la cima se rescata a LUNA, se suma la bonificación y se pasa de nivel | ✅ |
-| La bonificación decrece 100 cada 2 s | ✅ |
-| GAME OVER y récord persistente tras recargar | ✅ |
-| La dificultad sube por nivel | ✅ |
+| Arranque | Pantalla **¿QUÉ USUARIO VA A JUGAR?**, ENTRAR desactivado, la cámara gira por la sala y no se ven las manos |
+| Flujo completo | Crear usuario → entrar (manos visibles y nombre en el HUD) → **caminar con W** hasta la máquina → aviso **[E] JUGAR A MAZE MUNCHER** → E (estado SITTING a mitad de transición, CABINET al final) → Enter → partida → récord de 2500 → Q → sala con la máquina en demo → récord en el menú → recargar y comprobar que persiste |
+| Sin récord | Una partida peor no cambia el récord, muestra FIN DE PARTIDA y vuelve sola al título |
+| Pausa en la máquina | ESC congela el juego 120 pasos; Continuar lo reanuda; Reiniciar empieza de cero; Levantarse vuelve a la sala |
+| Zoom | F acerca la cámara más de 20 cm y otra F la devuelve |
+| Demo | Las máquinas inactivas tienen la pantalla encendida y cambian con el tiempo |
+| Cambiar usuario | Desde el menú; los récords de cada uno quedan aislados |
 
-### Generales · `tests/general.spec.js`
+### Sala (`room.spec.js`, 10 pruebas)
 
-| Prueba | Resultado |
+| Prueba | Qué comprueba |
 |---|---|
-| Menú → juego → menú → otro juego sin bucles duplicados (`activeLoops` = 1, `maxPending` = 1) | ✅ |
-| 20 reinicios seguidos dejan un único bucle activo (y unos 30 pasos en 500 ms reales, no el doble) | ✅ |
-| La velocidad del juego es igual a 60, 144 y 30 Hz; al volver de segundo plano no se recupera el tiempo perdido | ✅ |
-| 0 errores en consola en todo el recorrido, en tiempo real y sin ganchos | ✅ |
-| Las flechas y el espacio no desplazan la página; todo funciona con teclado | ✅ |
-| Resolución 360×640: sin scroll horizontal y pantalla completa visible | ✅ |
-| Resolución 768×1024 | ✅ |
-| Resolución 1366×768 | ✅ |
-| Resolución 1920×1080 | ✅ |
-| Persistencia tras cerrar y volver a abrir el navegador (`launchPersistentContext`) | ✅ |
-| Una partida con puntuación inferior al récord no lo modifica (pero sí queda en el historial) | ✅ |
-| El historial se limita a las últimas 20 partidas por juego | ✅ |
-| Silencio y CRT se recuerdan tras recargar | ✅ |
-| Sin `localStorage`, se juega en modo memoria con aviso | ✅ |
-| La versión empaquetada (un único HTML) arranca y se puede jugar | ✅ |
-| Controles táctiles en móvil emulado: cruceta, botón A, START y pausa | ✅ |
+| Colisiones | Andar 5 s contra cada máquina la deja a la distancia del radio; correr 6 s contra las paredes (y contra el banco) no las atraviesa |
+| Deslizar | En diagonal contra una máquina, el jugador se desliza a lo largo de ella |
+| Aviso de E | Solo aparece cerca, de frente y mirando a la máquina; E sin aviso no hace nada |
+| Bucle único | Tras 10 ciclos de sentarse, jugar y levantarse, `loopStarts` es 1; en 2 s de tiempo real hay un fotograma de la app por cada fotograma del navegador (proporción entre 0,8 y 1,25) y nunca más de 66 pasos por segundo |
+| Menú | ESC lo abre; las flechas mueven el foco; Controles, Récords y Volver; con el menú abierto no se anda |
+| Ajustes | Sonido, CRT, calidad y sensibilidad se recuerdan tras recargar; M alterna el silencio |
+| Vista | El ratón gira la vista y el cabeceo se limita a ±1,35 rad |
+| Tablero | El tablero de la pared se actualiza al batir un récord |
+| Migración | Datos de la versión anterior (schemaVersion 1) se migran sin perder el récord |
+| Modo memoria | Sin localStorage aparece el aviso y se juega en memoria |
 
-### Rendimiento y robustez · `tests/perf.spec.js`
+### Plataforma (`platform.spec.js`, 7 pruebas)
 
-| Prueba | Resultado medido |
+| Prueba | Qué comprueba |
 |---|---|
-| MAZE: coste por fotograma (update + render) | ✅ ≈0,22–0,35 ms (presupuesto: 16,7 ms) |
-| CLIMB: coste por fotograma | ✅ ≈0,17–0,22 ms |
-| MAZE: memoria retenida tras 40 s más de partida con el JIT caliente | ✅ sin crecimiento (−4 a +7 KB) |
-| CLIMB: memoria retenida | ✅ sin crecimiento (≈0 KB) |
-| Asignación transitoria por fotograma (números temporales de V8) | ✅ 430–750 B (límite de la prueba: 1 KB) |
-| MAZE: 20 000 pasos con entradas aleatorias, nunca dentro de una pared | ✅ |
-| CLIMB: 20 000 pasos con entradas aleatorias, siempre sobre la viga al caminar | ✅ |
+| 1366×768, 1920×1080, 1024×768 y 800×600 | Sin scroll; canvas a pantalla completa; paneles de usuario y de pausa dentro de la ventana |
+| Móvil táctil 390×844 | Controles táctiles visibles y sin aviso de ratón; la palanca virtual hace andar; el botón E sienta al jugador; cruceta, START (empieza), A (salta) y SALIR (vuelve a la sala); sin scroll horizontal |
+| Sin WebGL | Con `--disable-webgl --disable-3d-apis` aparece el mensaje **SIN 3D** y ningún error |
+| Persistencia real | Cerrar el navegador con un perfil persistente y volver a abrirlo: el récord sigue en la lista y en el tablero |
 
-## Revisión visual
+### Tiempo real (`realtime.spec.js`, 1 prueba, proyecto aparte)
 
-Capturas generadas por las pruebas en `test-results/screens/` (se regeneran en cada ejecución) y revisadas a mano:
+Sin ganchos de prueba (`window.__arcadeTest` no existe) y con el bucle en tiempo real. Al entrar se captura el ratón y se anda con W. **ESC** hace que el navegador suelte el ratón y se abre el menú. **CONTINUAR** vuelve a la sala y recaptura el ratón.
 
-- **360×640** (escala 1,44): todo cabe, sin scroll horizontal; los mandos táctiles se agrandan en móvil emulado.
-- Con el mueble turquesa actual: **768×1024** (×1,97), **1366×768** (×1,35), **1920×1080** (×2); el panel de mandos y la marquesina, más altos para parecerse a la referencia, dejan menos hueco al monitor que antes.
-- Revisadas: selección de jugador, menú, títulos de los dos juegos, partida, modo vulnerable, pausa, rescate, transición de fase, fin de partida con nuevo récord, récords y controles.
-- Corregido durante la revisión: el emoji del altavoz salía como un cuadrado sin fuente de emojis (ahora es un SVG); el aviso vacío asomaba bajo el panel; «¡AYUDA!» se solapaba con la caja de BONO; en 1920×1080 la escala se quedaba en ×2 por 6 px.
-- Rediseño «burbujas» (fondo celeste, mueble azul con laterales menta, marco naranja, joystick): la prueba táctil detectó que el lateral menta tapaba el botón rojo en móvil y el título de la marquesina desbordaba a 360 px; ambos corregidos.
-- Réplica de la máquina turquesa de referencia (marquesina con espuma y dinosaurios originales, laterales menta, columnas de burbujas, tornillos, bisel azul y marco naranja de varias capas, joystick, botón rojo apilado, botones amarillos, START, INSERT COIN): comparada con la imagen a 1384×746, 1920×1080, 768×1024 y 390×844. Corregido durante la comparación: el título rosa salía tapado por su propio contorno, el marco de la marquesina tapaba la barra de jugador, el palo del joystick atravesaba la base e INSERT COIN quedaba cortado.
-- Pase de volumen con CSS 3D (cubierta en perspectiva, paredes interiores, monitor hundido, sombras proyectadas, botones con lateral y sombra de contacto): revisado a 1384×746, 1920×1080 y 390×844. Corregido: la sombra interior del cristal oscurecía el marcador de los juegos, y el joystick empujaba INSERT COIN fuera de la pantalla.
-- Mueble imagen (`assets/cabinet.png`) en pantallas apaisadas: revisado a 1194×642, 1366×768 y 1920×1080 con selección de jugador, menú, partida, pausa y récords. El botón rojo dibujado responde al ratón (hace saltar al personaje). Coste: el juego vertical va centrado en la pantalla apaisada de la ilustración, con escala ×1,16 a 1366×768 y ×1,64 a 1920×1080.
-- Limitación conocida: Press Start 2P dibuja las mayúsculas acentuadas más pequeñas (se leen como «RéCORD»). Es el diseño de la fuente a 8×8.
+Esta prueba va en un proyecto de Playwright que se ejecuta después de los demás y en solitario. Con otras pruebas en paralelo compitiendo por la CPU, el 3D por software ralentiza tanto Chromium que tarda más de 90 s en devolver la pulsación de ESC que suelta el ratón. En solitario tarda unos 2 s. El comportamiento de la aplicación es el mismo en los dos casos.
 
-## Manuales (pendientes de hacer con una persona)
+## Qué no se prueba automáticamente
 
-No se pueden comprobar de forma automática. Quedan para probarlos jugando:
-
-| Prueba | Estado | Qué mirar |
-|---|---|---|
-| Sensación de control y dificultad | Pendiente | Giro anticipado del laberinto, timing del salto, ritmo de barriles en los niveles 1–4 |
-| Sincronía del audio | Pendiente | Chomp, efectos y música de título. Chromium headless corre silenciado (`--mute-audio`), así que solo se comprobó que el audio no da errores |
-| Legibilidad con CRT | Revisado en capturas; pendiente en monitor real | Scanlines y viñeta a escala ×2 y ×3 |
-| Controles táctiles en móvil real | Probado solo con emulación | Tamaño de la cruceta, pulsación mantenida, que no haga zoom ni scroll |
-
-## Cómo ejecutar
-
-```bash
-npm install
-npx playwright install chromium
-npm test
-npx playwright test tests/maze.spec.js     # un solo archivo
-npx playwright test --repeat-each=3        # detectar pruebas inestables
-```
-
-En WSL sin `libasound.so.2`, consulta la nota en el [README](README.md#desarrollo).
+- **Aspecto visual** (manos, palanca, CRT, iluminación): se ha revisado a ojo con capturas durante el desarrollo, no hay comparación de imágenes.
+- **Sonido**: se comprueba que los juegos piden los efectos correctos (`sfx`), pero no lo que suena.
+- **Rendimiento con GPU real**: las pruebas usan WebGL por software. La escena usa unas 70 llamadas de dibujo y 7000 triángulos.
+- **Otros navegadores**: solo Chromium.

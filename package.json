@@ -2,12 +2,23 @@
   "name": "arcade",
   "version": "1.0.0",
   "private": true,
-  "description": "Máquina arcade retro local (HTML + Canvas) con MAZE MUNCHER y BARREL CLIMB",
+  "description": "Salón recreativo 3D en primera persona con MAZE MUNCHER y BARREL CLIMB",
   "scripts": {
-    "test": "playwright test",
-    "bundle": "node tools/bundle.js"
+    "dev": "vite",
+    "build": "vite build",
+    "test:unit": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1"
-  }
+    "@playwright/test": "1.64.1",
+    "jsdom": "25.0.1",
+    "vite": "5.4.11",
+    "vite-plugin-singlefile": "2.0.3",
+    "vitest": "2.1.8"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "type": "module"
 }

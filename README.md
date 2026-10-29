@@ -1,33 +1,47 @@
-# Arcade Retro
+# Salón Recreativo 3D
 
-Máquina arcade local con dos juegos originales en pixel art y chiptune:
+Un salón recreativo en primera persona con dos máquinas que se pueden jugar en su propia pantalla:
 
 - **MAZE MUNCHER**: laberinto. Come los 240 puntos, usa las 4 superpíldoras para cazar a los enemigos y pasa de nivel.
 - **BARREL CLIMB**: plataformas. Sube por las vigas esquivando o saltando los barriles de GROG y rescata a LUNA en la cima.
 
-Hasta 5 jugadores, cada uno con su récord por juego, guardado en el navegador.
+Hasta 5 jugadores, cada uno con su récord por juego, guardado en el navegador y visible en el tablero luminoso de la pared.
 
 ## Cómo jugar
 
-1. Abre `index.html` con doble clic. No hace falta servidor, internet ni instalar nada.
-2. Crea tu jugador (de 1 a 10 caracteres) o elige uno existente.
-3. Elige juego en el menú y pulsa **Enter** en la pantalla de título.
+1. Genera el archivo con `npm install` y `npm run build` (ver *Desarrollo*), y abre **`dist/arcade.html`** con doble clic. No hace falta servidor ni internet: lleva dentro el código, la fuente y todas las texturas.
+2. En **¿QUÉ USUARIO VA A JUGAR?** crea tu jugador (de 1 a 10 caracteres) o elige uno, y pulsa **ENTRAR AL SALÓN**.
+3. Camina hasta una máquina. Cuando estés cerca y mirándola aparecerá **[E] JUGAR A …**: pulsa **E** y te colocarás frente a la pantalla.
+4. En la pantalla de título pulsa **Enter**. Al terminar verás tu puntuación y, si lo es, **¡NUEVO RÉCORD!**. Pulsa **Q** para levantarte.
 
-Si prefieres un solo archivo, `npm run bundle` genera `arcade-standalone.html`, que lo lleva todo dentro.
+El navegador captura el ratón al entrar en la sala, para que puedas mirar alrededor. **Esc** lo suelta y abre el menú; para volver, pulsa **CONTINUAR** o haz clic en la escena (el navegador exige un clic para volver a capturarlo, y así se indica en pantalla).
 
 ## Controles
 
-| Acción | Teclado | Táctil |
-|---|---|---|
-| Mover / subir / bajar | Flechas (también WASD) | Joystick (pulsa o mantén hacia un lado) |
-| Saltar (BARREL CLIMB) | Espacio | Botón rojo |
-| Pausa / menú | Esc o P | Botón ❚❚ |
-| Confirmar | Enter | Tocar (o START) |
-| Silenciar | M | Botón del altavoz |
+| Dónde | Acción | Teclado | Táctil |
+|---|---|---|---|
+| Sala | Andar / mirar | WASD o flechas / ratón | Palanca virtual / arrastrar en la mitad derecha |
+| Sala | Correr | Shift | — |
+| Sala | Usar máquina | E | Botón E |
+| Sala | Menú | Esc | Botón ☰ |
+| Máquina | Mover / escalar | Flechas o WASD | Cruceta |
+| Máquina | Saltar | Espacio | A |
+| Máquina | Empezar | Enter | START |
+| Máquina | Pausa (Continuar / Reiniciar / Levantarse) | Esc | ❚❚ |
+| Máquina | Acercar o alejar la pantalla / levantarse | F / Q | — / SALIR |
+| Siempre | Silencio | M | — |
 
-La interfaz se usa entera con teclado: las flechas mueven el foco entre botones y Enter confirma. El joystick, el botón rojo y los botones ❚❚ y START del panel inferior funcionan con ratón y táctil; en móvil se agrandan y los dos botones amarillos (decorativos) se ocultan.
+Los menús se usan también con el teclado: las flechas mueven el foco y Enter confirma. En pantallas táctiles (`pointer: coarse`) aparecen los controles táctiles y no se captura el ratón.
 
-El sonido empieza con la primera tecla o el primer toque, porque los navegadores lo exigen. Hasta entonces el botón del altavoz aparece con borde discontinuo.
+**Menú de la sala:** Continuar, Récords (con exportar e importar JSON), Cambiar usuario, Controles, Sonido, Pantalla CRT, Calidad (alta o baja) y Sensibilidad del ratón. Todos los ajustes se guardan.
+
+## Qué hay en el salón
+
+- **Manos en primera persona** que se balancean al andar. Al sentarte, la izquierda agarra la palanca y la derecha se apoya en los botones; el índice baja al pulsar.
+- **Máquinas 3D** con marquesina luminosa. La palanca se inclina y los botones se hunden con lo que pulsas.
+- **Pantalla CRT**: cada juego dibuja en un canvas de 224×288 que se usa como textura, con un *shader* de curvatura, scanlines, máscara de fósforo, viñeta y halo. Se puede desactivar en el menú.
+- **Demo**: las máquinas que no se usan juegan solas con un piloto automático y muestran **PULSA E**.
+- **Tablero de récords** en la pared izquierda, con los 5 mejores de cada juego en directo.
 
 ## Reglas
 
@@ -49,89 +63,99 @@ El sonido empieza con la primera tecla o el primer toque, porque los navegadores
 ## Estructura
 
 ```
-index.html            página única; carga los scripts en orden
-css/                  arcade.css (mueble «burbujas» y tokens), crt.css (efectos), screens.css (pantallas)
-fonts/font.js         Press Start 2P incrustada en base64 + OFL.txt
-js/core/              app.js (estados), loop.js (paso fijo), input.js, audio.js, rng.js
-js/data/              storage.js (esquema y validación), users.js, scores.js
-js/gfx/               renderer.js (224×288), sprites.js (matrices → canvas), text.js (texto bitmap)
-js/ui/                user-select.js, arcade-menu.js, records.js, overlays.js
-js/games/maze/        maze-map.js, maze-game.js, ghost-ai.js, maze-sprites.js
-js/games/climb/       climb-level.js, climb-game.js, physics.js, hazards.js, climb-sprites.js
-tests/                pruebas Playwright
-tools/bundle.js       genera arcade-standalone.html
+index.html                 overlays HTML (usuario, menús, récords, controles, HUD, táctil, sin WebGL)
+vite.config.js             build de un solo archivo → dist/arcade.html
+src/
+  main.js                  arranque: WebGL, fuente, datos
+  app/App.js               estados USER_SELECT → ROOM ⇄ ROOM_MENU / SITTING → CABINET ⇄ CABINET_PAUSE → STANDING, y el bucle único
+  data/                    storage.js (esquema v2, validación, migración), users.js, scores.js
+  core/                    input.js, audio.js (Web Audio), font.js + fontData.js (Press Start 2P), rng.js
+  gfx/                     sprites.js (matrices → canvas), text.js (texto bitmap)
+  world/                   Room.js, Cabinet.js, CrtMaterial.js, Hands.js, FirstPerson.js
+  arcade/ArcadeMachine.js  demo, título, partida, pausa, fin y récord de cada máquina
+  games/maze/              MazeGame.js (lógica), mazeMap.js, ghostAI.js, mazeRender.js, mazeSprites.js
+  games/climb/             ClimbGame.js (lógica), climbLevel.js, climbPhysics.js, climbHazards.js, climbRender.js, climbSprites.js
+  ui/                      panels.js, touch.js, dom.js
+tests/unit/                Vitest: datos, laberinto y plataformas
+tests/e2e/                 Playwright sobre dist/arcade.html
 ```
 
 **Decisiones técnicas**
-- Scripts clásicos con el espacio de nombres global `Arcade.*`, porque los módulos ES no funcionan desde `file://`.
-- Cada juego cumple el mismo contrato: `init(ctx, user)`, `update(dt)`, `render()`, `pause()`, `resume()`, `getScore()`, `destroy()`. `app.js` solo habla con esa interfaz.
-- Un único `requestAnimationFrame` con paso fijo de 60 Hz y un acumulador limitado a 250 ms. El juego va igual de rápido a 60, 144 o 30 Hz, y no da un salto al volver de otra pestaña.
-- El canvas dibuja a 224×288 nativos y se escala sin suavizado. Usa escala entera (×2, ×3…) cuando así se pierde como mucho un 10 % del hueco del monitor; si no, una escala fraccionaria para llenarlo. El grosor del bisel y del marco naranja se mide en el DOM, no está fijado en el código.
-- **Mueble imagen (pantallas apaisadas de 900 px o más):** el mueble es la ilustración `assets/cabinet.png` (1194×642), escalada para cubrir la ventana. Encima se colocan los elementos reales en coordenadas de la imagen: la barra de jugador, el monitor (menús a todo el ancho y el juego vertical centrado), y zonas de pulsación invisibles sobre el joystick, el botón rojo, la pausa y START, que brillan al pulsarlas. Las posiciones están en el bloque «mueble imagen» de `css/arcade.css`; si cambias la imagen, hay que ajustar esas coordenadas.
-- **Mueble CSS (pantallas verticales o estrechas):** el mueble (marquesina, cuerpo con laterales menta, monitor con bisel y marco naranja, panel de mandos) se construye solo con CSS y SVG incrustado, con volumen real: luz fija desde arriba a la izquierda, cubierta de mandos inclinada con `perspective` y `rotateX` (el joystick se contrarrota para quedar vertical), paredes interiores hundidas, monitor en un hueco y sombras proyectadas. Toda su geometría y su paleta están en variables de `:root` en `css/arcade.css`. Los dinosaurios de la marquesina son originales y se generan por geometría en `js/ui/arcade-menu.js`.
-- El bucle principal no crea objetos, arrays, cadenas ni closures. Los barriles, llamas y textos emergentes salen de pools fijos. Solo quedan los números temporales que V8 crea al operar con decimales (unos 0,4–0,7 KB por fotograma), que el recolector menor elimina sin pausas apreciables.
+- **Contrato de juego:** `new Game({ level, rng, sfx })`, `update(input)` a 60 Hz fijos y estado legible en `score`, `lives`, `level`, `state` y `gameOver`. La lógica no toca el DOM ni el canvas, y el dibujo está en `*Render.js`. Por eso las mecánicas se prueban con Vitest, sin navegador.
+- **Bucle único:** solo existe `renderer.setAnimationLoop`, con paso fijo de 1/60 s y un máximo de 5 pasos por fotograma (si el equipo va lento, el juego se ralentiza en lugar de saltar). Sentarse, levantarse, reiniciar o cambiar de máquina nunca crea otro bucle. La demo de las máquinas inactivas avanza a 30 Hz.
+- **Movimiento:** colisión de círculo (0,28 m) contra cajas alineadas a los ejes (máquinas y banco), resuelta eje a eje para deslizar por las paredes. Velocidad de 1,6 m/s, o 3 m/s corriendo.
+- **Al sentarse:** la cámara va en 0,8 s hasta una pose que se calcula según la proporción de la ventana. La pantalla ocupa el 40 % de la vista y se mira un poco hacia abajo para ver los mandos. Con **F**, la vista se pone de frente y la pantalla ocupa el 92 %.
+- **Rendimiento:** geometría sencilla (unas 70 llamadas de dibujo y 7000 triángulos), sin sombras dinámicas y con `pixelRatio` limitado a 2. En calidad baja, `pixelRatio` queda en 1 y solo hay una luz puntual.
+- **Sin WebGL:** se muestra un mensaje que lo explica, en lugar de una página en blanco.
+- Sin React ni otras librerías de interfaz: los overlays son HTML y CSS. La única dependencia de ejecución es three.js.
 
 ## Persistencia
 
-Los datos se guardan en `localStorage`, bajo la clave `arcade.v1`, con este esquema:
+Los datos se guardan en `localStorage`, con la clave `arcade.v1` (la misma que en la versión anterior) y este esquema:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "activeUserId": "u_…",
   "users": [{ "id": "u_…", "name": "JAVI", "createdAt": "ISO",
               "records": { "maze": { "best": 0, "date": null, "level": 0 },
                            "climb": { "best": 0, "date": null, "level": 0 } },
               "history": [{ "game": "maze", "score": 0, "level": 1, "date": "ISO" }] }],
-  "settings": { "muted": false, "crt": true }
+  "settings": { "muted": false, "crt": true, "quality": "high", "mouseSens": 1 }
 }
 ```
 
+- Los datos de la versión anterior (`schemaVersion` 1) se migran solos al abrir: se conservan usuarios, récords e historial y se añaden `quality` y `mouseSens`.
 - Al cargar se valida todo. Si algo está dañado, el contenido original se copia en `arcade.backup` y se recupera lo que sea válido. Nunca se borra todo.
 - El récord solo cambia si la puntuación lo supera. El historial guarda las últimas 20 partidas de cada juego.
-- Si `localStorage` no está disponible (por ejemplo, porque el navegador lo bloquea), se juega en **modo memoria** y aparece un aviso.
+- Si te levantas, pulsas REINICIAR o cambias de usuario a mitad de partida, esa partida no se guarda (igual que al salir al menú en la versión anterior).
+- Si `localStorage` no está disponible, se juega en **modo memoria** y aparece un aviso.
 
-**Límites**
-- Los datos viven en el navegador y el perfil donde juegas. Otro navegador u otro perfil empieza de cero.
-- Borrar los datos de navegación o jugar en una ventana privada elimina los récords. Para conservarlos, usa **RÉCORDS → EXPORTAR**, que descarga un JSON, e **IMPORTAR** para recuperarlo.
-- Con `file://`, Chrome comparte el mismo almacenamiento entre todas las páginas locales. Otros navegadores pueden separarlo por archivo, así que `index.html` y `arcade-standalone.html` pueden no compartir récords.
+## Limitaciones
+
+- Los datos viven en el navegador y en el perfil donde juegas. Borrar los datos de navegación o jugar en una ventana privada elimina los récords. Para conservarlos, usa **RÉCORDS → EXPORTAR** y luego **IMPORTAR**.
+- Con `file://`, Chrome comparte el almacenamiento entre todas las páginas locales. Otros navegadores pueden separarlo por archivo.
+- Hace falta WebGL. En equipos sin aceleración gráfica funciona por software, pero va lento; en ese caso conviene usar **CALIDAD: BAJA**.
+- El navegador no deja volver a capturar el ratón sin un clic. Tras **Esc** hay que pulsar **CONTINUAR** o hacer clic en la escena.
+- La fuente Press Start 2P dibuja las mayúsculas acentuadas (Á, É, Í, Ó, Ú) más pequeñas, para que el acento quepa en la celda de 8×8.
 
 ## Diferencias con los clásicos
 
-Los juegos reproducen las mecánicas del género, pero no copian ni el código, ni los mapas, ni los sprites, ni la música originales. Su comportamiento es equivalente, no idéntico.
+Los juegos reproducen las mecánicas del género, pero no copian el código, los mapas, los sprites ni la música originales. Su comportamiento es equivalente, no idéntico.
 
 **MAZE MUNCHER**
 - Laberinto propio (simétrico, 28×31) con otra distribución de pasillos.
-- Los enemigos deciden al llegar al centro de cada casilla, no una casilla antes. Desempatan en el orden arriba, izquierda, abajo, derecha, sin dar media vuelta salvo al cambiar de modo.
-- Sin «Cruise Elroy» (el aumento de velocidad del primer enemigo al quedar pocos puntos), sin zonas prohibidas para girar hacia arriba y sin frenazo al comer puntos.
+- Los enemigos deciden al llegar al centro de cada casilla, no una casilla antes. Desempatan en el orden arriba, izquierda, abajo, derecha, y no dan media vuelta salvo al cambiar de modo.
+- Sin «Cruise Elroy» (el primer enemigo no acelera cuando quedan pocos puntos), sin zonas en las que esté prohibido girar hacia arriba y sin frenazo al comer puntos.
 - Ciclos de dispersión y persecución simplificados en tres tramos de niveles. Más allá del nivel 16, el modo vulnerable dura 1 s.
-- La salida de la casa usa contadores de puntos por enemigo (o uno global tras perder una vida) más un temporizador de 4 s sin comer.
+- La salida de la casa usa contadores de puntos por enemigo (o uno global tras perder una vida), más un temporizador de 4 s sin comer.
 - El giro anticipado admite hasta 3 px antes y después del centro de la casilla.
 
 **BARREL CLIMB**
 - Un único tipo de fase (vigas). No hay fases de remaches, ascensores ni cintas.
 - Las vigas son rectas inclinadas continuas, en lugar de tramos escalonados.
 - Los barriles bajan escaleras con una probabilidad fija por nivel, mayor si estás debajo. No te «apuntan».
-- Las escaleras rotas no las puede usar nadie (ni el jugador, ni los barriles, ni las llamas).
-- El salto tiene un arco fijo de unos 16 px de altura y 36 fotogramas en el aire, sin control en el aire. Está ajustado para que saltar un barril que viene hacia ti funcione en una ventana amplia (comprobado en las pruebas).
+- Las escaleras rotas no las puede usar nadie: ni el jugador, ni los barriles, ni las llamas.
+- El salto tiene un arco fijo de unos 16 px de altura y 36 fotogramas en el aire, sin control en el aire.
 
 ## Licencias
 
-- **Código, sprites, mapas, niveles, música y efectos**: creación propia de este proyecto.
-- **Ilustración del mueble** (`assets/cabinet.png`): aportada por el usuario. Sus dos dinosaurios recuerdan mucho a los personajes de *Bubble Bobble* (Taito); para uso personal no hay problema, pero si el proyecto se va a publicar o distribuir conviene sustituirla. Los dinosaurios del mueble CSS sí son originales.
-- **Fuente**: Press Start 2P, © 2012 The Press Start 2P Project Authors, con licencia SIL Open Font License 1.1 (`fonts/OFL.txt`). Va incrustada en `fonts/font.js` sin modificar. Nota: a 8×8 píxeles, la fuente dibuja las mayúsculas acentuadas (Á, É, Í, Ó, Ú) con un tamaño reducido para que el acento quepa en la celda.
+- **Código, modelos 3D, texturas, sprites, mapas, niveles, música y efectos**: creación propia de este proyecto. Todo se genera por código; no hay imágenes ni modelos externos.
+- **three.js** (r170): licencia MIT, incluido en el archivo final.
+- **Fuente**: Press Start 2P, © 2012 The Press Start 2P Project Authors, con licencia SIL Open Font License 1.1 (`fonts/OFL.txt`). Va incrustada sin modificar.
 
 ## Desarrollo
-
-Para jugar no hace falta nada. Para las pruebas:
 
 ```bash
 npm install
 npx playwright install chromium
-npm test              # batería completa (Playwright, Chromium)
-npm run bundle        # genera arcade-standalone.html
+npm run dev          # servidor de desarrollo de Vite
+npm run build        # genera dist/arcade.html (un único archivo)
+npm run test:unit    # Vitest: lógica de datos y de los juegos
+npm run test:e2e     # build + Playwright sobre dist/arcade.html
+npm test             # las dos baterías
 ```
 
-- Las pruebas abren `index.html?test=1`, que activa los ganchos `window.__arcadeTest`: avanzar fotogramas, colocar al jugador, consultar el estado o forzar un nivel. Sin `?test=1`, los ganchos no existen.
+- Las pruebas e2e abren `dist/arcade.html?test=1`. El parámetro `?test=1` activa `window.__arcadeTest` (avanzar pasos, teletransportar al jugador, consultar el estado o terminar una partida con una puntuación dada) y hace que el tiempo solo avance con `step()`. Sin `?test=1`, los ganchos no existen.
 - En WSL sin las dependencias de sistema de Chromium, falta `libasound.so.2`. Puedes instalarla con `sudo npx playwright install-deps chromium` o extraerla sin instalar (`apt-get download libasound2t64` y `dpkg -x` en `~/.cache/arcade-libs/root`). La configuración de Playwright la usa automáticamente si existe.
 - Detalle de las pruebas y sus resultados: [TESTS.md](TESTS.md).
